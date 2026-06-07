@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	addTmux bool
+	addOpen bool
 	addPin  bool
 )
 
@@ -95,18 +95,32 @@ If the branch exists (locally or remotely), it is checked out.`,
 		fmt.Printf("Created worktree %s at %s\n", branch, relPath)
 
 		// Open tmux window if requested
-		if addTmux {
+		if addOpen {
 			if !tmuxSvc.IsInstalled() {
-				fmt.Fprintln(os.Stderr, "warning: tmux is not installed, skipping -t")
+				fmt.Fprintln(os.Stderr, "warning: tmux is not installed, skipping -o")
 				return
 			}
 			if !tmuxSvc.IsInsideTmux() {
-				fmt.Fprintln(os.Stderr, "warning: not in a tmux session, skipping -t")
+				fmt.Fprintln(os.Stderr, "warning: not in a tmux session, skipping -o")
 				return
 			}
 			windowName := paths.TmuxSlug(branch)
-			if err := tmuxSvc.OpenWindow(windowName, wtPath); err != nil {
-				fmt.Fprintln(os.Stderr, "warning: could not open tmux window:", err)
+			if len(cfg.Tmux.Panes) > 0 {
+				var panes []tmux.PaneSpec
+				for _, p := range cfg.Tmux.Panes {
+					panes = append(panes, tmux.PaneSpec{Command: p.Command})
+				}
+				layout := cfg.Tmux.Layout
+				if layout == "" {
+					layout = "even-vertical"
+				}
+				if err := tmuxSvc.OpenWindowWithLayout(windowName, wtPath, layout, panes); err != nil {
+					fmt.Fprintln(os.Stderr, "warning: could not open tmux window:", err)
+				}
+			} else {
+				if err := tmuxSvc.OpenWindow(windowName, wtPath); err != nil {
+					fmt.Fprintln(os.Stderr, "warning: could not open tmux window:", err)
+				}
 			}
 		}
 	},
@@ -117,7 +131,7 @@ func hasPrefix(branch string, prefix string) bool {
 }
 
 func init() {
-	addCmd.Flags().BoolVarP(&addTmux, "tmux", "t", false, "open a tmux window for the worktree")
+	addCmd.Flags().BoolVarP(&addOpen, "open", "o", false, "open a tmux window for the worktree")
 	addCmd.Flags().BoolVar(&addPin, "pin", false, "pin the worktree (exclude from gc)")
 	rootCmd.AddCommand(addCmd)
 }

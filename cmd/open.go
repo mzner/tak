@@ -22,7 +22,7 @@ var openCmd = &cobra.Command{
 If no branch is specified, shows an interactive picker.
 If a window already exists, switches to it.
 If not, creates a new window cd'd into the worktree.
-The worktree must already exist (use tak add -t to create and open).`,
+The worktree must already exist (use tak add -o to create and open).`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		r := runner.NewExecRunner()
@@ -90,9 +90,25 @@ The worktree must already exist (use tak add -t to create and open).`,
 		}
 
 		windowName := paths.TmuxSlug(branch)
-		if err := tmuxSvc.OpenWindow(windowName, wtPath); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+
+		if len(cfg.Tmux.Panes) > 0 {
+			var panes []tmux.PaneSpec
+			for _, p := range cfg.Tmux.Panes {
+				panes = append(panes, tmux.PaneSpec{Command: p.Command})
+			}
+			layout := cfg.Tmux.Layout
+			if layout == "" {
+				layout = "even-vertical"
+			}
+			if err := tmuxSvc.OpenWindowWithLayout(windowName, wtPath, layout, panes); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := tmuxSvc.OpenWindow(windowName, wtPath); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
 		}
 	},
 }
