@@ -1,0 +1,5 @@
+worktree_base: ""
+branch_prefix: "feature/"
+pins:
+  - feature/auth
+  - long-running/experiment

@@ -1,0 +1,4 @@
+worktree_base: /Users/dev/worktrees
+repos:
+  web: ~/projects/web
+  ocis: ~/projects/ocis
