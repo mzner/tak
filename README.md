@@ -1,6 +1,6 @@
 # tak
 
-> Dutch for "branch". Git worktree manager with pinning, tmux integration, and lifecycle tools.
+Git worktree manager with pinning, tmux integration, and lifecycle tools.
 
 tak makes git worktrees easy to create, navigate, and clean up. Pin long-lived worktrees, jump between them with tmux, and garbage-collect stale ones.
 
@@ -60,17 +60,17 @@ tak shell-init fish | source
 | Command | Description |
 |---------|-------------|
 | `tak add <branch> [-o] [--pin]` | Create a worktree (`-o` opens in tmux, `--pin` pins it) |
-| `tak rm [branch...] [--force]` | Remove worktree(s) — interactive multi-select if no arg |
+| `tak rm [branch...] [--force]` | Remove worktree(s) and branch — interactive if no arg |
 | `tak ls` | List all worktrees with status |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
 | `tak open [branch]` | Open/switch to tmux window — interactive if no arg |
 | `tak pin [branch]` | Pin a worktree (no arg = current) |
 | `tak unpin [branch]` | Unpin a worktree |
 | `tak doctor` | Health check all worktrees |
-| `tak gc [--merged] [--dry-run]` | Clean up stale worktrees |
+| `tak gc [--merged] [--dry-run]` | Clean up broken worktrees (+ merged with `--merged`) |
 | `tak layout` | Configure tmux pane layout (interactive) |
 | `tak init` | Initialize tak in a repo |
-| `tak shell-init <shell>` | Print shell hook |
+| `tak shell-init <shell>` | Print shell hook for zsh/bash/fish |
 
 ## Configuration
 
@@ -79,17 +79,19 @@ tak shell-init fish | source
 ```yaml
 worktree_base: ""         # empty = sibling dirs (default)
 branch_prefix: ""         # auto-prepend to branch names
+
 pins:
   - feature/auth
+
 tmux:
-  layout: main-vertical   # even-vertical, even-horizontal, main-vertical, main-horizontal, tiled
+  layout: main-vertical
   panes:
     - name: editor
       command: $EDITOR
     - name: dev
       command: pnpm dev
     - name: shell
-      command: ""          # empty = plain shell
+      command: ""
 ```
 
 ### Global: `~/.config/tak/config.yml`
@@ -103,10 +105,12 @@ repos:
 
 ## How It Works
 
-- Worktrees are created as sibling directories by default: `~/projects/web` -> `~/projects/web--feature--auth`
-- Pins are stored in `.tak.yml` (recoverable config, not ephemeral state)
+- Worktrees are created as sibling directories by default: `~/projects/web` → `~/projects/web--feature--auth`
+- `tak rm` removes the worktree and deletes the branch (keeps it if there are unmerged commits)
+- `tak open` uses the `tmux` config from `.tak.yml` to create pane layouts, or a plain window if unconfigured
+- Pins are stored in `.tak.yml` — recoverable config, not ephemeral state
 - State cache (`.tak/state.json`) is rebuilt automatically if deleted
-- All git/tmux interaction is via shell commands - no heavy dependencies
+- All git/tmux interaction is via shell commands — no heavy dependencies
 
 ## Contributing
 
