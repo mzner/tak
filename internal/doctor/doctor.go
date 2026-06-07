@@ -21,7 +21,6 @@ type CheckType string
 const (
 	CheckMerged CheckType = "merged"
 	CheckBroken CheckType = "broken"
-	CheckDirty  CheckType = "dirty"
 )
 
 // Finding represents a single health check result.
@@ -84,20 +83,6 @@ func (d *Doctor) Check(entries []worktree.Entry, pins []string, mainBranch strin
 				Check:    CheckMerged,
 				Severity: SeverityWarning,
 				Message:  "branch merged into " + mainBranch,
-				Pinned:   isPinned,
-			})
-			continue
-		}
-
-		// Check if worktree is dirty
-		dirty, err := d.wt.IsDirty(entry.Path)
-		if err == nil && dirty {
-			findings = append(findings, Finding{
-				Branch:   entry.Branch,
-				Path:     entry.Path,
-				Check:    CheckDirty,
-				Severity: SeverityInfo,
-				Message:  "uncommitted changes",
 				Pinned:   isPinned,
 			})
 		}

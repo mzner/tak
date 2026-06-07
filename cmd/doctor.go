@@ -17,9 +17,8 @@ var doctorCmd = &cobra.Command{
 	Long: `Run health checks on all known worktrees and report issues.
 
 Checks performed:
-  - Branch merged into main: suggests removal
-  - Uncommitted changes: warns about dirty worktrees
   - Broken paths: flags worktrees whose path doesn't exist
+  - Branch merged into main: suggests removal
 
 Doctor only reports — it never removes anything.`,
 	Run: func(cmd *cobra.Command, args []string) {

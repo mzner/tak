@@ -80,25 +80,6 @@ func TestCheck_SkipsPinnedBranches(t *testing.T) {
 	assert.True(t, findings[0].Pinned)
 }
 
-func TestCheck_DirtyWorktree(t *testing.T) {
-	tmpDir := t.TempDir()
-	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("* main\n")},
-		"git -C " + tmpDir + " status": {Output: []byte(" M file.go\n")},
-	})
-	wtSvc := worktree.NewService(fake)
-	d := New(wtSvc)
-
-	entries := []worktree.Entry{
-		{Path: tmpDir, Branch: "feature/wip"},
-	}
-
-	findings := d.Check(entries, nil, "main")
-	require.Len(t, findings, 1)
-	assert.Equal(t, SeverityInfo, findings[0].Severity)
-	assert.Equal(t, CheckDirty, findings[0].Check)
-}
-
 func TestCheck_AllClean(t *testing.T) {
 	tmpDir := t.TempDir()
 	fake := runner.NewFakeRunner(map[string]runner.Response{
