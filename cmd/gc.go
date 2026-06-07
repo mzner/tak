@@ -117,6 +117,9 @@ Always skips pinned worktrees.`,
 
 		state.Save(statePath, st)
 
+		// Prune git's worktree registry for paths that no longer exist
+		wtSvc.Prune()
+
 		if len(skipped) > 0 {
 			fmt.Printf("\nSkipped %d pinned worktree(s).\n", len(skipped))
 		}

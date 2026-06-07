@@ -125,6 +125,11 @@ func (s *Service) HasCommitsAhead(branch string, target string) (bool, error) {
 	return strings.TrimSpace(string(output)) != "0", nil
 }
 
+// Prune removes stale worktree entries from git's registry.
+func (s *Service) Prune() {
+	s.runner.Run("git", "worktree", "prune")
+}
+
 // BranchExists checks if a branch exists (local or remote tracking).
 func (s *Service) BranchExists(branch string) bool {
 	_, err := s.runner.Run("git", "rev-parse", "--verify", branch)
