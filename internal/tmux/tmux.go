@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/mzner/tak/internal/runner"
@@ -15,6 +16,12 @@ type Service struct {
 // NewService creates a Service with the given command runner.
 func NewService(r runner.CommandRunner) *Service {
 	return &Service{runner: r}
+}
+
+// IsInstalled returns true if the tmux binary is available on PATH.
+func (s *Service) IsInstalled() bool {
+	_, err := exec.LookPath("tmux")
+	return err == nil
 }
 
 // IsInsideTmux returns true if the current process is running inside tmux.

@@ -96,6 +96,10 @@ If the branch exists (locally or remotely), it is checked out.`,
 
 		// Open tmux window if requested
 		if addTmux {
+			if !tmuxSvc.IsInstalled() {
+				fmt.Fprintln(os.Stderr, "warning: tmux is not installed, skipping -t")
+				return
+			}
 			if !tmuxSvc.IsInsideTmux() {
 				fmt.Fprintln(os.Stderr, "warning: not in a tmux session, skipping -t")
 				return

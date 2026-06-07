@@ -29,6 +29,10 @@ The worktree must already exist (use tak add -t to create and open).`,
 		wtSvc := worktree.NewService(r)
 		tmuxSvc := tmux.NewService(r)
 
+		if !tmuxSvc.IsInstalled() {
+			fmt.Fprintln(os.Stderr, "error: tmux is not installed\n\n  Install with: brew install tmux")
+			os.Exit(1)
+		}
 		if !tmuxSvc.IsInsideTmux() {
 			fmt.Fprintln(os.Stderr, "error: not in a tmux session, start one with `tmux` first")
 			os.Exit(1)
