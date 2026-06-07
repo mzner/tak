@@ -91,6 +91,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak doctor` | Health check all worktrees |
 | `tak gc [--merged] [--dry-run]` | Clean up broken worktrees (+ merged with `--merged`) |
 | `tak layout` | Configure tmux pane layout (interactive wizard) |
+| `tak config` | Show config file paths and contents |
 | `tak init` | Initialize tak in a repo |
 | `tak shell-init <shell>` | Print shell hook for zsh/bash/fish |
 
