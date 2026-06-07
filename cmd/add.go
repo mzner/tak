@@ -53,6 +53,16 @@ If the branch exists (locally or remotely), it is checked out.`,
 		// Resolve worktree path
 		wtPath := paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
 
+		// Check if branch already has a worktree
+		entries, _ := wtSvc.List()
+		for _, e := range entries {
+			if e.Branch == branch {
+				fmt.Fprintf(os.Stderr, "error: '%s' already has a worktree at %s\n\n", branch, e.Path)
+				fmt.Fprintf(os.Stderr, "  Use `tak cd %s` or `tak open %s` to switch to it.\n", branch, branch)
+				os.Exit(1)
+			}
+		}
+
 		// Determine if branch is new or existing
 		newBranch := !wtSvc.BranchExists(branch)
 

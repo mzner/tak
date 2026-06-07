@@ -57,17 +57,26 @@ The worktree must already exist (use tak add -t to create and open).`,
 			}
 		}
 
-		// Find worktree path
+		// Find worktree path: state → git worktree list → resolved path
 		takDir := filepath.Join(repoRoot, ".tak")
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
 
-		entry, found := state.FindByBranch(st, branch)
 		var wtPath string
+		entry, found := state.FindByBranch(st, branch)
 		if found {
 			wtPath = entry.Path
 		} else {
-			wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
+			entries, _ := wtSvc.List()
+			for _, e := range entries {
+				if e.Branch == branch {
+					wtPath = e.Path
+					break
+				}
+			}
+			if wtPath == "" {
+				wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
+			}
 		}
 
 		// Verify worktree exists

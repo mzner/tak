@@ -61,6 +61,15 @@ Without the hook, use: cd $(tak cd <branch>)`,
 			return
 		}
 
+		// Check git worktree list (covers main and untracked worktrees)
+		entries, _ := wtSvc.List()
+		for _, e := range entries {
+			if e.Branch == branch {
+				fmt.Println(e.Path)
+				return
+			}
+		}
+
 		// Fall back to resolving the path
 		wtPath := paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
 		if _, err := os.Stat(wtPath); err == nil {
@@ -71,7 +80,6 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		// Not found
 		fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s'\n\n", branch)
 		fmt.Fprintln(os.Stderr, "Available worktrees:")
-		entries, _ := wtSvc.List()
 		for _, e := range entries {
 			fmt.Fprintf(os.Stderr, "  %s\n", e.Branch)
 		}
