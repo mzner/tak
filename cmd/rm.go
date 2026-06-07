@@ -106,10 +106,13 @@ func selectWorktree(wtSvc *worktree.Service, title string) (string, error) {
 	}
 
 	var selected string
-	err = huh.NewSelect[string]().
+	selectField := huh.NewSelect[string]().
 		Title(title).
 		Options(options...).
-		Value(&selected).
+		Value(&selected)
+
+	err = huh.NewForm(huh.NewGroup(selectField)).
+		WithOutput(os.Stderr).
 		Run()
 	if err != nil {
 		return "", err
@@ -128,10 +131,13 @@ func selectWorktrees(wtSvc *worktree.Service, title string) ([]string, error) {
 	}
 
 	var selected []string
-	err = huh.NewMultiSelect[string]().
+	multiField := huh.NewMultiSelect[string]().
 		Title(title).
 		Options(options...).
-		Value(&selected).
+		Value(&selected)
+
+	err = huh.NewForm(huh.NewGroup(multiField)).
+		WithOutput(os.Stderr).
 		Run()
 	if err != nil {
 		return nil, err
