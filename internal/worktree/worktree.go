@@ -80,13 +80,18 @@ func (s *Service) IsMerged(branch string, target string) (bool, error) {
 	return false, nil
 }
 
-// RepoRoot returns the root directory of the current git repository.
+// RepoRoot returns the root directory of the main working tree.
+// This always resolves to the primary repo root, even when called
+// from inside a linked worktree.
 func (s *Service) RepoRoot() (string, error) {
-	output, err := s.runner.Run("git", "rev-parse", "--show-toplevel")
+	output, err := s.runner.Run("git", "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	gitDir := strings.TrimSpace(string(output))
+	// For main worktree: /path/to/repo/.git → /path/to/repo
+	// For linked worktree: still returns /path/to/repo/.git
+	return strings.TrimSuffix(gitDir, "/.git"), nil
 }
 
 // CurrentBranch returns the current branch name.
@@ -96,6 +101,25 @@ func (s *Service) CurrentBranch() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// DeleteBranch deletes a local branch. If force is true, uses -D (even if unmerged).
+func (s *Service) DeleteBranch(branch string, force bool) error {
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	_, err := s.runner.Run("git", "branch", flag, branch)
+	return err
+}
+
+// HasCommitsAhead returns true if branch has commits not in target.
+func (s *Service) HasCommitsAhead(branch string, target string) (bool, error) {
+	output, err := s.runner.Run("git", "rev-list", "--count", target+".."+branch)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(output)) != "0", nil
 }
 
 // BranchExists checks if a branch exists (local or remote tracking).

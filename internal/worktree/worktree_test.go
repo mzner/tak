@@ -123,7 +123,18 @@ func TestIsMerged(t *testing.T) {
 
 func TestRepoRoot(t *testing.T) {
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git rev-parse": {Output: []byte("/Users/dev/projects/web\n")},
+		"git rev-parse --path-format=absolute --git-common-dir": {Output: []byte("/Users/dev/projects/web/.git\n")},
+	})
+	svc := NewService(fake)
+
+	root, err := svc.RepoRoot()
+	require.NoError(t, err)
+	assert.Equal(t, "/Users/dev/projects/web", root)
+}
+
+func TestRepoRoot_FromWorktree(t *testing.T) {
+	fake := runner.NewFakeRunner(map[string]runner.Response{
+		"git rev-parse --path-format=absolute --git-common-dir": {Output: []byte("/Users/dev/projects/web/.git\n")},
 	})
 	svc := NewService(fake)
 
