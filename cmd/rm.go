@@ -149,9 +149,10 @@ func worktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], error) {
 		return nil, err
 	}
 
+	defaultBranch := wtSvc.DefaultBranch()
 	var options []huh.Option[string]
 	for _, e := range entries {
-		if e.Branch == "main" || e.Branch == "master" || e.Branch == "(detached)" {
+		if e.Branch == defaultBranch || e.Branch == "(detached)" {
 			continue
 		}
 		options = append(options, huh.NewOption(e.Branch, e.Branch))

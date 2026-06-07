@@ -104,6 +104,28 @@ func (s *Service) BranchExists(branch string) bool {
 	return err == nil
 }
 
+// DefaultBranch returns the repository's default branch (main, master, etc.)
+// by checking what origin/HEAD points to, falling back to common names.
+func (s *Service) DefaultBranch() string {
+	output, err := s.runner.Run("git", "symbolic-ref", "refs/remotes/origin/HEAD")
+	if err == nil {
+		ref := strings.TrimSpace(string(output))
+		parts := strings.Split(ref, "/")
+		if len(parts) > 0 {
+			return parts[len(parts)-1]
+		}
+	}
+
+	// Fallback: check if main or master exists
+	if s.BranchExists("main") {
+		return "main"
+	}
+	if s.BranchExists("master") {
+		return "master"
+	}
+	return "main"
+}
+
 // parsePorcelain parses the output of `git worktree list --porcelain`.
 func parsePorcelain(output string) []Entry {
 	var entries []Entry

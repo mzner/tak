@@ -51,7 +51,7 @@ Always skips pinned worktrees.`,
 		}
 
 		d := doctor.New(wtSvc)
-		findings := d.Check(entries, cfg.Pins, "main")
+		findings := d.Check(entries, cfg.Pins, wtSvc.DefaultBranch())
 
 		var toRemove []doctor.Finding
 		var skipped []doctor.Finding

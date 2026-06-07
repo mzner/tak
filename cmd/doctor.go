@@ -47,7 +47,7 @@ Doctor only reports — it never removes anything.`,
 		fmt.Printf("Checking %d worktrees...\n\n", len(entries))
 
 		d := doctor.New(wtSvc)
-		findings := d.Check(entries, cfg.Pins, "main")
+		findings := d.Check(entries, cfg.Pins, wtSvc.DefaultBranch())
 
 		if len(findings) == 0 {
 			fmt.Println("All worktrees healthy.")
