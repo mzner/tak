@@ -1,0 +1,127 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/mzner/tak/internal/config"
+	"github.com/mzner/tak/internal/doctor"
+	"github.com/mzner/tak/internal/paths"
+	"github.com/mzner/tak/internal/runner"
+	"github.com/mzner/tak/internal/state"
+	"github.com/mzner/tak/internal/tmux"
+	"github.com/mzner/tak/internal/worktree"
+	"github.com/spf13/cobra"
+)
+
+var (
+	gcMerged bool
+	gcDryRun bool
+)
+
+var gcCmd = &cobra.Command{
+	Use:   "gc",
+	Short: "Remove stale and merged worktrees",
+	Long: `Garbage-collect worktrees that are no longer needed.
+
+By default, removes broken worktrees (path missing) and merged branches.
+Always skips pinned worktrees.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		r := runner.NewExecRunner()
+		wtSvc := worktree.NewService(r)
+		tmuxSvc := tmux.NewService(r)
+
+		repoRoot, err := wtSvc.RepoRoot()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error: not in a git repository")
+			os.Exit(1)
+		}
+
+		cfg, err := config.Load(repoRoot, "")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+
+		entries, err := wtSvc.List()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+
+		d := doctor.New(wtSvc)
+		findings := d.Check(entries, cfg.Pins, "main")
+
+		var toRemove []doctor.Finding
+		var skipped []doctor.Finding
+
+		for _, f := range findings {
+			if f.Pinned {
+				skipped = append(skipped, f)
+				continue
+			}
+			switch f.Check {
+			case doctor.CheckBroken:
+				toRemove = append(toRemove, f)
+			case doctor.CheckMerged:
+				toRemove = append(toRemove, f)
+			}
+		}
+
+		if len(toRemove) == 0 {
+			fmt.Println("Nothing to clean up.")
+			return
+		}
+
+		if gcDryRun {
+			fmt.Println("Would remove:")
+			for _, f := range toRemove {
+				fmt.Printf("  %-24s (%s)\n", f.Branch, f.Message)
+			}
+			if len(skipped) > 0 {
+				fmt.Println("\nSkipped (pinned):")
+				for _, f := range skipped {
+					fmt.Printf("  %s\n", f.Branch)
+				}
+			}
+			fmt.Println("\nRun without --dry-run to remove.")
+			return
+		}
+
+		// Perform removals
+		takDir := filepath.Join(repoRoot, ".tak")
+		statePath := state.StatePath(takDir)
+		st, _ := state.Load(statePath)
+
+		removed := 0
+		for _, f := range toRemove {
+			windowName := paths.TmuxSlug(f.Branch)
+			tmuxSvc.CloseWindow(windowName)
+
+			if f.Check != doctor.CheckBroken {
+				if err := wtSvc.Remove(f.Path, true); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not remove %s: %s\n", f.Branch, err)
+					continue
+				}
+			}
+
+			state.Untrack(st, f.Branch)
+			removed++
+			fmt.Printf("Removed %s (%s)\n", f.Branch, f.Message)
+		}
+
+		state.Save(statePath, st)
+
+		if len(skipped) > 0 {
+			fmt.Printf("\nSkipped %d pinned worktree(s).\n", len(skipped))
+		}
+		fmt.Printf("\nCleaned up %d worktree(s).\n", removed)
+	},
+}
+
+func init() {
+	gcCmd.Flags().BoolVar(&gcMerged, "merged", false, "remove worktrees whose branch is merged into main")
+	gcCmd.Flags().BoolVar(&gcDryRun, "dry-run", false, "show what would be removed without acting")
+	rootCmd.AddCommand(gcCmd)
+}
