@@ -13,13 +13,13 @@ type Config struct {
 
 // TmuxConfig describes the pane layout for tak open.
 type TmuxConfig struct {
-	Layout string     `yaml:"layout"`
-	Panes  []PaneConfig `yaml:"panes"`
+	Layout string       `yaml:"layout,omitempty"`
+	Panes  []PaneConfig `yaml:"panes,omitempty"`
 }
 
 // PaneConfig describes a single tmux pane.
 type PaneConfig struct {
-	Name    string `yaml:"name"`
+	Name    string `yaml:"name,omitempty"`
 	Command string `yaml:"command"`
 }
 
@@ -34,5 +34,5 @@ type localFile struct {
 	WorktreeBase string     `yaml:"worktree_base"`
 	BranchPrefix string     `yaml:"branch_prefix"`
 	Pins         []string   `yaml:"pins"`
-	Tmux         TmuxConfig `yaml:"tmux"`
+	Tmux         TmuxConfig `yaml:"tmux,omitempty"`
 }

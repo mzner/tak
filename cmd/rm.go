@@ -57,6 +57,7 @@ Refuses to remove dirty worktrees (use --force to override).`,
 		takDir := filepath.Join(repoRoot, ".tak")
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
+		defaultBranch := wtSvc.DefaultBranch()
 
 		for _, branch := range branches {
 			if cfg.IsPinned(branch) {
@@ -88,13 +89,12 @@ Refuses to remove dirty worktrees (use --force to override).`,
 				continue
 			}
 
-			forceDelete := rmForce
-			if !forceDelete {
-				hasCommits, _ := wtSvc.HasCommitsAhead(branch, wtSvc.DefaultBranch())
-				forceDelete = !hasCommits
-			}
-			if err := wtSvc.DeleteBranch(branch, forceDelete); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: worktree removed but branch not deleted: %s\n", err)
+			hasCommits, err := wtSvc.HasCommitsAhead(branch, defaultBranch)
+			canDelete := err == nil && !hasCommits
+			if canDelete || rmForce {
+				if err := wtSvc.DeleteBranch(branch, true); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not delete branch %s: %s\n", branch, err)
+				}
 			}
 
 			state.Untrack(st, branch)

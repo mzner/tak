@@ -25,7 +25,8 @@ var gcCmd = &cobra.Command{
 	Short: "Remove stale and merged worktrees",
 	Long: `Garbage-collect worktrees that are no longer needed.
 
-By default, removes broken worktrees (path missing) and merged branches.
+By default, removes only broken worktrees (path missing).
+With --merged, also removes worktrees whose branch is merged.
 Always skips pinned worktrees.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		r := runner.NewExecRunner()
@@ -65,7 +66,9 @@ Always skips pinned worktrees.`,
 			case doctor.CheckBroken:
 				toRemove = append(toRemove, f)
 			case doctor.CheckMerged:
-				toRemove = append(toRemove, f)
+				if gcMerged {
+					toRemove = append(toRemove, f)
+				}
 			}
 		}
 
@@ -106,6 +109,7 @@ Always skips pinned worktrees.`,
 				}
 			}
 
+			wtSvc.DeleteBranch(f.Branch, true)
 			state.Untrack(st, f.Branch)
 			removed++
 			fmt.Printf("Removed %s (%s)\n", f.Branch, f.Message)

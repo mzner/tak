@@ -90,27 +90,26 @@ The worktree must already exist (use tak add -o to create and open).`,
 		}
 
 		windowName := paths.TmuxSlug(branch)
-
-		if len(cfg.Tmux.Panes) > 0 {
-			var panes []tmux.PaneSpec
-			for _, p := range cfg.Tmux.Panes {
-				panes = append(panes, tmux.PaneSpec{Command: p.Command})
-			}
-			layout := cfg.Tmux.Layout
-			if layout == "" {
-				layout = "even-vertical"
-			}
-			if err := tmuxSvc.OpenWindowWithLayout(windowName, wtPath, layout, panes); err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
-			}
-		} else {
-			if err := tmuxSvc.OpenWindow(windowName, wtPath); err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
-			}
+		if err := openTmuxWindow(tmuxSvc, cfg, windowName, wtPath); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
 		}
 	},
+}
+
+func openTmuxWindow(tmuxSvc *tmux.Service, cfg *config.Config, windowName string, wtPath string) error {
+	if len(cfg.Tmux.Panes) > 0 {
+		var panes []tmux.PaneSpec
+		for _, p := range cfg.Tmux.Panes {
+			panes = append(panes, tmux.PaneSpec{Command: p.Command})
+		}
+		layout := cfg.Tmux.Layout
+		if layout == "" {
+			layout = "even-vertical"
+		}
+		return tmuxSvc.OpenWindowWithLayout(windowName, wtPath, layout, panes)
+	}
+	return tmuxSvc.OpenWindow(windowName, wtPath)
 }
 
 func init() {
