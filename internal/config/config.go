@@ -124,15 +124,25 @@ func loadLocalFile(path string) (localFile, error) {
 	return cfg, err
 }
 
+func expandHome(path string) string {
+	if len(path) >= 2 && path[:2] == "~/" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
 func merge(global globalFile, local localFile, repoRoot string) Config {
 	cfg := Config{
-		WorktreeBase: global.WorktreeBase,
+		WorktreeBase: expandHome(global.WorktreeBase),
 		Repos:        global.Repos,
 		RepoRoot:     repoRoot,
 	}
 
 	if local.WorktreeBase != "" {
-		cfg.WorktreeBase = local.WorktreeBase
+		cfg.WorktreeBase = expandHome(local.WorktreeBase)
 	}
 	if local.BranchPrefix != "" {
 		cfg.BranchPrefix = local.BranchPrefix
