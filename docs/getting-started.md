@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Git 2.20+ (for worktree support)
-- tmux (optional, for `tak open` and `-t` flag)
+- tmux (optional, for `tak open` and `-o` flag)
 - Go 1.22+ (only if building from source)
 
 ## Installation
@@ -55,7 +55,7 @@ Reload your shell: `source ~/.zshrc`
 ### 3. Create your first worktree
 
 ```bash
-tak add feature/my-feature -t
+tak add feature/my-feature -o
 ```
 
 This:

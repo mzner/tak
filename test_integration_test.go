@@ -14,13 +14,11 @@ import (
 )
 
 func TestIntegration_FullWorkflow(t *testing.T) {
-	// Build tak binary
 	tmpBin := filepath.Join(t.TempDir(), "tak")
 	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
 	buildCmd.Dir = projectRoot(t)
 	require.NoError(t, buildCmd.Run(), "failed to build tak")
 
-	// Create a temporary git repo
 	repoDir := t.TempDir()
 	runGit(t, repoDir, "init")
 	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
@@ -35,7 +33,6 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	output = runTak(t, tmpBin, repoDir, "add", "feature/test")
 	assert.Contains(t, output, "Created worktree feature/test")
 
-	// Verify worktree exists
 	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--test")
 	assert.DirExists(t, wtPath)
 
@@ -57,7 +54,6 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 
 	// tak gc --dry-run (pinned should be skipped)
 	output = runTak(t, tmpBin, repoDir, "gc", "--dry-run")
-	// Either "Nothing to clean up" or shows pinned in skipped
 	assert.True(t, strings.Contains(output, "Nothing to clean up") || strings.Contains(output, "pinned"))
 
 	// tak unpin feature/test
@@ -69,13 +65,274 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	assert.Contains(t, output, "Removed worktree feature/test")
 	assert.NoDirExists(t, wtPath)
 
-	// Cleanup
 	t.Cleanup(func() {
 		os.RemoveAll(wtPath)
 	})
 }
 
+func TestIntegration_RmDeletesBranch(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	// Add and remove a worktree with no commits (should delete branch)
+	runTak(t, tmpBin, repoDir, "add", "feature/empty")
+	runTak(t, tmpBin, repoDir, "rm", "feature/empty")
+
+	branches := runGitOutput(t, repoDir, "branch")
+	assert.NotContains(t, branches, "feature/empty")
+}
+
+func TestIntegration_RmKeepsBranchWithCommits(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	// Add worktree and make a commit in it
+	runTak(t, tmpBin, repoDir, "add", "feature/work")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--work")
+	runGit(t, wtPath, "commit", "--allow-empty", "-m", "work in progress")
+
+	// Remove without --force: branch should be kept
+	runTak(t, tmpBin, repoDir, "rm", "feature/work")
+
+	branches := runGitOutput(t, repoDir, "branch")
+	assert.Contains(t, branches, "feature/work")
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_RmForceDeletesBranchWithCommits(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	runTak(t, tmpBin, repoDir, "add", "feature/force")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--force")
+	runGit(t, wtPath, "commit", "--allow-empty", "-m", "unmerged work")
+
+	// Remove with --force: branch should be deleted
+	runTak(t, tmpBin, repoDir, "rm", "--force", "feature/force")
+
+	branches := runGitOutput(t, repoDir, "branch")
+	assert.NotContains(t, branches, "feature/force")
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_RmRefusesPinned(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	runTak(t, tmpBin, repoDir, "add", "feature/pinned", "--pin")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--pinned")
+
+	// Try to remove pinned worktree
+	output := runTak(t, tmpBin, repoDir, "rm", "feature/pinned")
+	assert.Contains(t, output, "pinned")
+	assert.DirExists(t, wtPath)
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_RmFromWorktree(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	// Pin a worktree
+	runTak(t, tmpBin, repoDir, "add", "feature/pintest", "--pin")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--pintest")
+
+	// Try rm from inside the worktree — should still find pin
+	output := runTakDir(t, tmpBin, wtPath, "rm", "feature/pintest")
+	assert.Contains(t, output, "pinned")
+	assert.DirExists(t, wtPath)
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_GcMerged(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	// Create a worktree, merge it, then gc
+	runTak(t, tmpBin, repoDir, "add", "feature/merged")
+	runGit(t, repoDir, "merge", "feature/merged")
+
+	// gc without --merged should NOT remove it
+	output := runTak(t, tmpBin, repoDir, "gc", "--dry-run")
+	assert.Contains(t, output, "Nothing to clean up")
+
+	// gc --merged should remove it
+	output = runTak(t, tmpBin, repoDir, "gc", "--merged")
+	assert.Contains(t, output, "Removed")
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--merged")
+	assert.NoDirExists(t, wtPath)
+
+	// Branch should also be deleted
+	branches := runGitOutput(t, repoDir, "branch")
+	assert.NotContains(t, branches, "feature/merged")
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_CdNotFound(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	output := runTak(t, tmpBin, repoDir, "cd", "nonexistent")
+	assert.Contains(t, output, "no worktree for branch")
+}
+
+func TestIntegration_InitAlreadyExists(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+
+	runTak(t, tmpBin, repoDir, "init")
+	output := runTak(t, tmpBin, repoDir, "init")
+	assert.Contains(t, output, "already exists")
+}
+
+func TestIntegration_AddDuplicate(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	runTak(t, tmpBin, repoDir, "add", "feature/dup")
+	output := runTak(t, tmpBin, repoDir, "add", "feature/dup")
+	assert.Contains(t, output, "already has a worktree")
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--dup")
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_DoctorBroken(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	runTak(t, tmpBin, repoDir, "init")
+
+	runTak(t, tmpBin, repoDir, "add", "feature/broken")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--broken")
+
+	// Manually delete the worktree directory to simulate a broken state
+	os.RemoveAll(wtPath)
+
+	output := runTak(t, tmpBin, repoDir, "doctor")
+	assert.Contains(t, output, "path does not exist")
+}
+
+func TestIntegration_ShellInit(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	output := runTak(t, tmpBin, t.TempDir(), "shell-init", "zsh")
+	assert.Contains(t, output, "tak()")
+	assert.Contains(t, output, "command tak cd")
+
+	output = runTak(t, tmpBin, t.TempDir(), "shell-init", "fish")
+	assert.Contains(t, output, "function tak")
+}
+
+func TestIntegration_BranchPrefix(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+
+	// Write config with branch prefix
+	configContent := "worktree_base: \"\"\nbranch_prefix: \"feature/\"\npins: []\n"
+	os.WriteFile(filepath.Join(repoDir, ".tak.yml"), []byte(configContent), 0644)
+	os.MkdirAll(filepath.Join(repoDir, ".tak"), 0755)
+
+	// tak add auth → should create feature/auth
+	output := runTak(t, tmpBin, repoDir, "add", "auth")
+	assert.Contains(t, output, "feature/auth")
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--auth")
+	assert.DirExists(t, wtPath)
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+// Helper functions
+
 func runTak(t *testing.T, bin string, dir string, args ...string) string {
+	t.Helper()
+	return runTakDir(t, bin, dir, args...)
+}
+
+func runTakDir(t *testing.T, bin string, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = dir
@@ -92,6 +349,15 @@ func runGit(t *testing.T, dir string, args ...string) {
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "git %s failed: %s", strings.Join(args, " "), output)
+}
+
+func runGitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git %s failed: %s", strings.Join(args, " "), output)
+	return string(output)
 }
 
 func projectRoot(t *testing.T) string {

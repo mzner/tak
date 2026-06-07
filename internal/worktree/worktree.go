@@ -72,7 +72,10 @@ func (s *Service) IsMerged(branch string, target string) (bool, error) {
 	}
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		name := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "*"))
+		name := strings.TrimSpace(line)
+		name = strings.TrimPrefix(name, "* ")
+		name = strings.TrimPrefix(name, "+ ")
+		name = strings.TrimSpace(name)
 		if name == branch {
 			return true, nil
 		}

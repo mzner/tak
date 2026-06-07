@@ -85,7 +85,7 @@ The worktree must already exist (use tak add -o to create and open).`,
 
 		// Verify worktree exists
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s', create one with `tak add %s -t`\n", branch, branch)
+			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s', create one with `tak add %s -o`\n", branch, branch)
 			os.Exit(1)
 		}
 
