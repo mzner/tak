@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -25,5 +26,9 @@ func Execute(version string) {
 }
 
 func init() {
+	// Detect color from stderr so interactive pickers render correctly
+	// even when stdout is captured by the shell hook (tak cd).
+	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(os.Stderr))
+
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 }
