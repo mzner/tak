@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -59,6 +60,59 @@ func (s *Service) OpenWindow(name string, path string) error {
 	_, err = s.runner.Run("tmux", "new-window", "-n", name, "-c", path)
 	return err
 }
+
+// OpenWindowWithLayout creates a window and splits it into panes with commands.
+// If the window already exists, it just switches to it.
+// Commands are sent as keystrokes so the shell stays alive after they finish.
+func (s *Service) OpenWindowWithLayout(name string, path string, layout string, panes []PaneSpec) error {
+	exists, err := s.HasWindow(name)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		_, err = s.runner.Run("tmux", "select-window", "-t", name)
+		return err
+	}
+
+	// Create first pane
+	newArgs := []string{"new-window", "-n", name, "-c", path}
+	if len(panes) > 0 && panes[0].Command != "" {
+		newArgs = append(newArgs, fmt.Sprintf("%s; exec $SHELL", panes[0].Command))
+	}
+	if _, err := s.runner.Run("tmux", newArgs...); err != nil {
+		return err
+	}
+
+	// Split additional panes
+	for i := 1; i < len(panes); i++ {
+		splitArgs := []string{"split-window", "-t", name, "-v", "-c", path}
+		if panes[i].Command != "" {
+			splitArgs = append(splitArgs, fmt.Sprintf("%s; exec $SHELL", panes[i].Command))
+		}
+		if _, err := s.runner.Run("tmux", splitArgs...); err != nil {
+			return err
+		}
+	}
+
+	// Apply layout
+	if layout != "" && len(panes) > 1 {
+		s.runner.Run("tmux", "select-layout", "-t", name, layout)
+	}
+
+	// Select first pane
+	if len(panes) > 1 {
+		s.runner.Run("tmux", "select-pane", "-t", name+".0")
+	}
+
+	return nil
+}
+
+// PaneSpec describes a pane to create.
+type PaneSpec struct {
+	Command string
+}
+
 
 // CloseWindow kills a tmux window by name. No-op if window doesn't exist.
 func (s *Service) CloseWindow(name string) error {

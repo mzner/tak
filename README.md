@@ -23,7 +23,7 @@ go install github.com/mzner/tak@latest
 tak init
 
 # Create a worktree and open it in tmux
-tak add feature/auth -t
+tak add feature/auth -o
 
 # Pin it so gc won't clean it up
 tak pin
@@ -59,7 +59,7 @@ tak shell-init fish | source
 
 | Command | Description |
 |---------|-------------|
-| `tak add <branch> [-t] [--pin]` | Create a worktree (`-t` opens tmux, `--pin` pins it) |
+| `tak add <branch> [-o] [--pin]` | Create a worktree (`-o` opens in tmux, `--pin` pins it) |
 | `tak rm [branch...] [--force]` | Remove worktree(s) — interactive multi-select if no arg |
 | `tak ls` | List all worktrees with status |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
@@ -68,6 +68,7 @@ tak shell-init fish | source
 | `tak unpin [branch]` | Unpin a worktree |
 | `tak doctor` | Health check all worktrees |
 | `tak gc [--merged] [--dry-run]` | Clean up stale worktrees |
+| `tak layout` | Configure tmux pane layout (interactive) |
 | `tak init` | Initialize tak in a repo |
 | `tak shell-init <shell>` | Print shell hook |
 
@@ -80,6 +81,15 @@ worktree_base: ""         # empty = sibling dirs (default)
 branch_prefix: ""         # auto-prepend to branch names
 pins:
   - feature/auth
+tmux:
+  layout: main-vertical   # even-vertical, even-horizontal, main-vertical, main-horizontal, tiled
+  panes:
+    - name: editor
+      command: $EDITOR
+    - name: dev
+      command: pnpm dev
+    - name: shell
+      command: ""          # empty = plain shell
 ```
 
 ### Global: `~/.config/tak/config.yml`

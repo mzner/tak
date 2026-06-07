@@ -68,6 +68,22 @@ func (c *Config) RemovePin(branch string) error {
 	return c.persistPins()
 }
 
+// SetTmux updates the tmux layout config and persists to .tak.yml.
+func (c *Config) SetTmux(tmuxCfg TmuxConfig) error {
+	c.Tmux = tmuxCfg
+	local, err := loadLocalFile(c.LocalConfigPath)
+	if err != nil {
+		return err
+	}
+	local.Tmux = tmuxCfg
+
+	data, err := yaml.Marshal(local)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(c.LocalConfigPath, data, 0644)
+}
+
 func (c *Config) persistPins() error {
 	local, err := loadLocalFile(c.LocalConfigPath)
 	if err != nil {
@@ -123,6 +139,9 @@ func merge(global globalFile, local localFile, repoRoot string) Config {
 	}
 	if local.Pins != nil {
 		cfg.Pins = local.Pins
+	}
+	if len(local.Tmux.Panes) > 0 {
+		cfg.Tmux = local.Tmux
 	}
 
 	return cfg
