@@ -1,90 +1,92 @@
 package runner
 
-import (
-	"strings"
-)
+import "fmt"
 
-// Call represents a recorded command execution.
+// Call records a single command invocation made through FakeRunner.
 type Call struct {
 	Dir  string
 	Name string
 	Args []string
 }
 
-// String returns a string representation of the Call suitable for matching.
-// Format: "name arg1 arg2 ..." if dir is empty, otherwise "dir|name arg1 arg2 ..."
-func (c *Call) String() string {
-	cmdStr := c.Name
-	if len(c.Args) > 0 {
-		cmdStr = cmdStr + " " + strings.Join(c.Args, " ")
-	}
-	if c.Dir == "" {
-		return cmdStr
-	}
-	return c.Dir + "|" + cmdStr
-}
-
-// Response represents a preset response for a command.
+// Response holds a preset output and optional error for a command.
 type Response struct {
-	Error error
+	Output []byte
+	Err    error
 }
 
-// FakeRunner is a CommandRunner implementation that records calls and returns preset responses.
+// FakeRunner implements CommandRunner for testing.
+// It records all calls and returns preset responses.
 type FakeRunner struct {
-	Calls     []*Call
-	Responses map[string]*Response
+	// Calls records every command invocation in order.
+	Calls []Call
+
+	// Responses maps a command key to the output it should return.
+	// The key format is "name arg1 arg2..." (space-separated).
+	// If a command is not found in Responses, it returns empty output.
+	Responses map[string]Response
 }
 
-// NewFakeRunner creates a new FakeRunner with empty responses.
-func NewFakeRunner() *FakeRunner {
+// NewFakeRunner creates a FakeRunner with the given preset responses.
+func NewFakeRunner(responses map[string]Response) *FakeRunner {
+	if responses == nil {
+		responses = make(map[string]Response)
+	}
 	return &FakeRunner{
-		Calls:     []*Call{},
-		Responses: make(map[string]*Response),
+		Responses: responses,
 	}
 }
 
-// SetResponse sets a preset response for a command key.
-// The key can be a full command (with or without dir prefix) or a substring.
-func (f *FakeRunner) SetResponse(key string, response *Response) {
-	f.Responses[key] = response
+// Run records the call and returns the preset response.
+func (f *FakeRunner) Run(name string, args ...string) ([]byte, error) {
+	f.Calls = append(f.Calls, Call{Name: name, Args: args})
+	return f.lookup(name, args...)
 }
 
-// Run records a call and returns a preset response if available.
-func (f *FakeRunner) Run(name string, args ...string) error {
-	call := &Call{Dir: "", Name: name, Args: args}
-	f.Calls = append(f.Calls, call)
-	return f.lookupResponse(call)
+// RunInDir records the call (including dir) and returns the preset response.
+func (f *FakeRunner) RunInDir(dir string, name string, args ...string) ([]byte, error) {
+	f.Calls = append(f.Calls, Call{Dir: dir, Name: name, Args: args})
+	return f.lookup(name, args...)
 }
 
-// RunInDir records a call with directory and returns a preset response if available.
-func (f *FakeRunner) RunInDir(dir, name string, args ...string) error {
-	call := &Call{Dir: dir, Name: name, Args: args}
-	f.Calls = append(f.Calls, call)
-	return f.lookupResponse(call)
-}
-
-// lookupResponse returns a preset response by progressively trying longer key prefixes.
-// It tries the exact call string first, then progressively shorter variations.
-func (f *FakeRunner) lookupResponse(call *Call) error {
-	callStr := call.String()
-
-	// Try exact match first
-	if resp, ok := f.Responses[callStr]; ok {
-		return resp.Error
+// lookup finds a matching response. It tries progressively shorter key prefixes.
+func (f *FakeRunner) lookup(name string, args ...string) ([]byte, error) {
+	// Build full command key and try progressively longer prefixes
+	key := name
+	if resp, ok := f.Responses[key]; ok {
+		return resp.Output, resp.Err
 	}
-
-	// Try just the command name
-	if resp, ok := f.Responses[call.Name]; ok {
-		return resp.Error
-	}
-
-	// Try with dir prefix if present
-	if call.Dir != "" {
-		if resp, ok := f.Responses[call.Dir]; ok {
-			return resp.Error
+	for _, arg := range args {
+		key += " " + arg
+		if resp, ok := f.Responses[key]; ok {
+			return resp.Output, resp.Err
 		}
 	}
 
-	// Return nil if no response is configured
-	return nil
+	return nil, nil
+}
+
+// CallCount returns how many times any command was invoked.
+func (f *FakeRunner) CallCount() int {
+	return len(f.Calls)
+}
+
+// LastCall returns the most recent call, or panics if none.
+func (f *FakeRunner) LastCall() Call {
+	if len(f.Calls) == 0 {
+		panic("FakeRunner: no calls recorded")
+	}
+	return f.Calls[len(f.Calls)-1]
+}
+
+// String returns a readable summary of a Call (for debugging test failures).
+func (c Call) String() string {
+	s := c.Name
+	for _, a := range c.Args {
+		s += " " + a
+	}
+	if c.Dir != "" {
+		s = fmt.Sprintf("[%s] %s", c.Dir, s)
+	}
+	return s
 }

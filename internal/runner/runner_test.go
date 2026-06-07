@@ -1,126 +1,70 @@
 package runner
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestExecRunnerEcho tests that ExecRunner can execute a simple echo command.
-func TestExecRunnerEcho(t *testing.T) {
-	runner := &ExecRunner{}
-	err := runner.Run("echo", "hello")
-	assert.NoError(t, err)
+func TestExecRunner_Run_Success(t *testing.T) {
+	r := NewExecRunner()
+	output, err := r.Run("echo", "hello")
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", string(output))
 }
 
-// TestExecRunnerInvalidFlag tests that ExecRunner properly returns an error for invalid flags.
-func TestExecRunnerInvalidFlag(t *testing.T) {
-	runner := &ExecRunner{}
-	err := runner.Run("ls", "--invalid-flag-that-does-not-exist")
+func TestExecRunner_Run_Failure(t *testing.T) {
+	r := NewExecRunner()
+	_, err := r.Run("git", "status", "--nonexistent-flag-xyz")
 	assert.Error(t, err)
 }
 
-// TestExecRunnerRunInDir tests that ExecRunner can execute a command in a specific directory.
-func TestExecRunnerRunInDir(t *testing.T) {
-	runner := &ExecRunner{}
-	// Test with temp directory - use pwd which works everywhere
-	err := runner.RunInDir("/tmp", "pwd")
-	assert.NoError(t, err)
-}
-
-// TestFakeRunnerRecordsCalls tests that FakeRunner records all calls.
-func TestFakeRunnerRecordsCalls(t *testing.T) {
-	runner := NewFakeRunner()
-	err := runner.Run("git", "status")
+func TestExecRunner_RunInDir(t *testing.T) {
+	r := NewExecRunner()
+	output, err := r.RunInDir("/tmp", "pwd")
 	require.NoError(t, err)
-	assert.Len(t, runner.Calls, 1)
-	assert.Equal(t, "git", runner.Calls[0].Name)
-	assert.Equal(t, []string{"status"}, runner.Calls[0].Args)
-	assert.Equal(t, "", runner.Calls[0].Dir)
+	assert.Contains(t, string(output), "tmp")
 }
 
-// TestFakeRunnerRecordsCallsWithDir tests that FakeRunner records calls with directory.
-func TestFakeRunnerRecordsCallsWithDir(t *testing.T) {
-	runner := NewFakeRunner()
-	err := runner.RunInDir("/tmp", "make", "build")
+func TestFakeRunner_RecordsCalls(t *testing.T) {
+	fake := NewFakeRunner(nil)
+
+	_, _ = fake.Run("git", "worktree", "list")
+	_, _ = fake.RunInDir("/some/path", "git", "status")
+
+	assert.Equal(t, 2, fake.CallCount())
+	assert.Equal(t, "git", fake.Calls[0].Name)
+	assert.Equal(t, []string{"worktree", "list"}, fake.Calls[0].Args)
+	assert.Equal(t, "/some/path", fake.Calls[1].Dir)
+}
+
+func TestFakeRunner_ReturnsPresetResponse(t *testing.T) {
+	fake := NewFakeRunner(map[string]Response{
+		"git worktree list": {Output: []byte("worktree1\nworktree2\n")},
+		"git status":        {Err: assert.AnError},
+	})
+
+	output, err := fake.Run("git", "worktree", "list")
 	require.NoError(t, err)
-	assert.Len(t, runner.Calls, 1)
-	assert.Equal(t, "/tmp", runner.Calls[0].Dir)
-	assert.Equal(t, "make", runner.Calls[0].Name)
-	assert.Equal(t, []string{"build"}, runner.Calls[0].Args)
+	assert.Equal(t, "worktree1\nworktree2\n", string(output))
+
+	_, err = fake.Run("git", "status")
+	assert.Error(t, err)
 }
 
-// TestFakeRunnerReturnsPresets tests that FakeRunner returns preset responses.
-func TestFakeRunnerReturnsPresets(t *testing.T) {
-	runner := NewFakeRunner()
-	testErr := errors.New("test error")
-	runner.SetResponse("git status", &Response{Error: testErr})
+func TestFakeRunner_UnknownCommandReturnsNil(t *testing.T) {
+	fake := NewFakeRunner(nil)
 
-	err := runner.Run("git", "status")
-	assert.Equal(t, testErr, err)
-}
-
-// TestFakeRunnerUnknownReturnsNil tests that FakeRunner returns nil for unknown commands.
-func TestFakeRunnerUnknownReturnsNil(t *testing.T) {
-	runner := NewFakeRunner()
-	err := runner.Run("unknown", "command")
+	output, err := fake.Run("git", "whatever")
 	assert.NoError(t, err)
+	assert.Nil(t, output)
 }
 
-// TestFakeRunnerPresetByCommand tests that FakeRunner can match on command name alone.
-func TestFakeRunnerPresetByCommand(t *testing.T) {
-	runner := NewFakeRunner()
-	testErr := errors.New("git error")
-	runner.SetResponse("git", &Response{Error: testErr})
+func TestCall_String(t *testing.T) {
+	c := Call{Name: "git", Args: []string{"worktree", "add"}}
+	assert.Equal(t, "git worktree add", c.String())
 
-	err := runner.Run("git", "status")
-	assert.Equal(t, testErr, err)
-}
-
-// TestFakeRunnerPresetByDir tests that FakeRunner can match on directory.
-func TestFakeRunnerPresetByDir(t *testing.T) {
-	runner := NewFakeRunner()
-	testErr := errors.New("dir error")
-	runner.SetResponse("/tmp", &Response{Error: testErr})
-
-	err := runner.RunInDir("/tmp", "make", "build")
-	assert.Equal(t, testErr, err)
-}
-
-// TestCallString tests the Call.String() method.
-func TestCallString(t *testing.T) {
-	tests := []struct {
-		name     string
-		call     *Call
-		expected string
-	}{
-		{
-			name:     "simple command",
-			call:     &Call{Dir: "", Name: "git", Args: []string{"status"}},
-			expected: "git status",
-		},
-		{
-			name:     "command with multiple args",
-			call:     &Call{Dir: "", Name: "git", Args: []string{"commit", "-m", "message"}},
-			expected: "git commit -m message",
-		},
-		{
-			name:     "command with no args",
-			call:     &Call{Dir: "", Name: "git", Args: []string{}},
-			expected: "git",
-		},
-		{
-			name:     "with directory",
-			call:     &Call{Dir: "/tmp", Name: "make", Args: []string{"build"}},
-			expected: "/tmp|make build",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.call.String())
-		})
-	}
+	c = Call{Dir: "/tmp", Name: "git", Args: []string{"status"}}
+	assert.Equal(t, "[/tmp] git status", c.String())
 }

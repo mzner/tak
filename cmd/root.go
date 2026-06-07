@@ -1,27 +1,29 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
-var (
-	verbose bool
-)
+var verbose bool
 
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "tak",
-	Short: "Terminal multiplexer and worktree manager",
-	Long: `tak is a CLI tool for managing terminal multiplexers and worktrees.
-It provides utilities for managing workspaces across multiple terminals.`,
+	Short: "Git worktree manager",
+	Long:  "tak — Git worktree management with pinning, tmux integration, and lifecycle tools.",
 }
 
-// Execute executes the root command with the given version string.
-func Execute(version string) error {
+// Execute runs the root command. Called from main.go.
+func Execute(version string) {
 	rootCmd.Version = version
-	return rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 }

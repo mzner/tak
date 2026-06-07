@@ -1,37 +1,52 @@
 package runner
 
 import (
-	"os"
+	"fmt"
 	"os/exec"
 )
 
-// CommandRunner defines the interface for executing system commands.
+// CommandRunner abstracts command execution so tests can provide
+// fake implementations that don't actually shell out.
 type CommandRunner interface {
-	// Run executes a command with the given name and arguments in the current directory.
-	Run(name string, args ...string) error
+	// Run executes a command and returns its stdout output.
+	// Returns an error if the command exits non-zero.
+	Run(name string, args ...string) ([]byte, error)
 
-	// RunInDir executes a command with the given name and arguments in the specified directory.
-	RunInDir(dir, name string, args ...string) error
+	// RunInDir executes a command in a specific working directory.
+	RunInDir(dir string, name string, args ...string) ([]byte, error)
 }
 
-// ExecRunner is a CommandRunner implementation that executes real system commands.
+// ExecRunner implements CommandRunner using os/exec.
 type ExecRunner struct{}
 
-// Run executes a command with the given name and arguments in the current directory.
-func (e *ExecRunner) Run(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
+// NewExecRunner creates a new ExecRunner.
+func NewExecRunner() *ExecRunner {
+	return &ExecRunner{}
 }
 
-// RunInDir executes a command with the given name and arguments in the specified directory.
-func (e *ExecRunner) RunInDir(dir, name string, args ...string) error {
+// Run executes a command in the current working directory.
+func (r *ExecRunner) Run(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("%s: %s", err, string(exitErr.Stderr))
+		}
+		return nil, err
+	}
+	return output, nil
+}
+
+// RunInDir executes a command in the specified directory.
+func (r *ExecRunner) RunInDir(dir string, name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("%s: %s", err, string(exitErr.Stderr))
+		}
+		return nil, err
+	}
+	return output, nil
 }
