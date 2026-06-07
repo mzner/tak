@@ -97,7 +97,7 @@ Refuses to remove dirty worktrees (use --force to override).`,
 }
 
 func selectWorktree(wtSvc *worktree.Service, title string) (string, error) {
-	options, err := worktreeOptions(wtSvc)
+	options, err := allWorktreeOptions(wtSvc)
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +119,7 @@ func selectWorktree(wtSvc *worktree.Service, title string) (string, error) {
 }
 
 func selectWorktrees(wtSvc *worktree.Service, title string) ([]string, error) {
-	options, err := worktreeOptions(wtSvc)
+	options, err := removableWorktreeOptions(wtSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,23 @@ func selectWorktrees(wtSvc *worktree.Service, title string) ([]string, error) {
 	return selected, nil
 }
 
-func worktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], error) {
+func allWorktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], error) {
+	entries, err := wtSvc.List()
+	if err != nil {
+		return nil, err
+	}
+
+	var options []huh.Option[string]
+	for _, e := range entries {
+		if e.Branch == "(detached)" {
+			continue
+		}
+		options = append(options, huh.NewOption(e.Branch, e.Branch))
+	}
+	return options, nil
+}
+
+func removableWorktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], error) {
 	entries, err := wtSvc.List()
 	if err != nil {
 		return nil, err
