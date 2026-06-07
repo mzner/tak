@@ -88,6 +88,15 @@ Refuses to remove dirty worktrees (use --force to override).`,
 				continue
 			}
 
+			forceDelete := rmForce
+			if !forceDelete {
+				hasCommits, _ := wtSvc.HasCommitsAhead(branch, wtSvc.DefaultBranch())
+				forceDelete = !hasCommits
+			}
+			if err := wtSvc.DeleteBranch(branch, forceDelete); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: worktree removed but branch not deleted: %s\n", err)
+			}
+
 			state.Untrack(st, branch)
 			fmt.Printf("Removed worktree %s\n", branch)
 		}
