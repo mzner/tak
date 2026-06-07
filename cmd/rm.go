@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/huh"
 	"github.com/mzner/tak/internal/config"
 	"github.com/mzner/tak/internal/paths"
 	"github.com/mzner/tak/internal/runner"
@@ -17,15 +18,15 @@ import (
 var rmForce bool
 
 var rmCmd = &cobra.Command{
-	Use:   "rm <branch>",
+	Use:   "rm [branch]",
 	Short: "Remove a worktree",
 	Long: `Remove a git worktree for the specified branch.
 
+If no branch is specified, shows an interactive picker.
 Refuses to remove pinned worktrees (use tak unpin first).
 Refuses to remove dirty worktrees (use --force to override).`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		branch := args[0]
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 		tmuxSvc := tmux.NewService(r)
@@ -42,49 +43,120 @@ Refuses to remove dirty worktrees (use --force to override).`,
 			os.Exit(1)
 		}
 
-		if cfg.IsPinned(branch) {
-			fmt.Fprintf(os.Stderr, "error: worktree is pinned\n\n  Run `tak unpin %s` first, then retry.\n", branch)
-			os.Exit(1)
-		}
-
-		// Find worktree path
-		takDir := filepath.Join(repoRoot, ".tak")
-		statePath := state.StatePath(takDir)
-		st, _ := state.Load(statePath)
-
-		entry, found := state.FindByBranch(st, branch)
-		var wtPath string
-		if found {
-			wtPath = entry.Path
+		var branches []string
+		if len(args) > 0 {
+			branches = args
 		} else {
-			wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
-		}
-
-		// Check if dirty
-		if !rmForce {
-			dirty, err := wtSvc.IsDirty(wtPath)
-			if err == nil && dirty {
-				fmt.Fprintln(os.Stderr, "error: worktree has uncommitted changes, use --force to remove anyway")
+			branches, err = selectWorktrees(wtSvc, "Select worktree(s) to remove:")
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
 				os.Exit(1)
 			}
 		}
 
-		// Close tmux window if exists
-		windowName := paths.TmuxSlug(branch)
-		tmuxSvc.CloseWindow(windowName)
+		takDir := filepath.Join(repoRoot, ".tak")
+		statePath := state.StatePath(takDir)
+		st, _ := state.Load(statePath)
 
-		// Remove worktree
-		if err := wtSvc.Remove(wtPath, rmForce); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+		for _, branch := range branches {
+			if cfg.IsPinned(branch) {
+				fmt.Fprintf(os.Stderr, "skipping %s: pinned (run `tak unpin %s` first)\n", branch, branch)
+				continue
+			}
+
+			entry, found := state.FindByBranch(st, branch)
+			var wtPath string
+			if found {
+				wtPath = entry.Path
+			} else {
+				wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
+			}
+
+			if !rmForce {
+				dirty, err := wtSvc.IsDirty(wtPath)
+				if err == nil && dirty {
+					fmt.Fprintf(os.Stderr, "skipping %s: uncommitted changes (use --force)\n", branch)
+					continue
+				}
+			}
+
+			windowName := paths.TmuxSlug(branch)
+			tmuxSvc.CloseWindow(windowName)
+
+			if err := wtSvc.Remove(wtPath, rmForce); err != nil {
+				fmt.Fprintf(os.Stderr, "error removing %s: %s\n", branch, err)
+				continue
+			}
+
+			state.Untrack(st, branch)
+			fmt.Printf("Removed worktree %s\n", branch)
 		}
 
-		// Update state
-		state.Untrack(st, branch)
 		state.Save(statePath, st)
-
-		fmt.Printf("Removed worktree %s\n", branch)
 	},
+}
+
+func selectWorktree(wtSvc *worktree.Service, title string) (string, error) {
+	options, err := worktreeOptions(wtSvc)
+	if err != nil {
+		return "", err
+	}
+	if len(options) == 0 {
+		return "", fmt.Errorf("no worktrees to select")
+	}
+
+	var selected string
+	err = huh.NewSelect[string]().
+		Title(title).
+		Options(options...).
+		Value(&selected).
+		Run()
+	if err != nil {
+		return "", err
+	}
+
+	return selected, nil
+}
+
+func selectWorktrees(wtSvc *worktree.Service, title string) ([]string, error) {
+	options, err := worktreeOptions(wtSvc)
+	if err != nil {
+		return nil, err
+	}
+	if len(options) == 0 {
+		return nil, fmt.Errorf("no worktrees to select")
+	}
+
+	var selected []string
+	err = huh.NewMultiSelect[string]().
+		Title(title).
+		Options(options...).
+		Value(&selected).
+		Run()
+	if err != nil {
+		return nil, err
+	}
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("no worktrees selected")
+	}
+
+	return selected, nil
+}
+
+func worktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], error) {
+	entries, err := wtSvc.List()
+	if err != nil {
+		return nil, err
+	}
+
+	var options []huh.Option[string]
+	for _, e := range entries {
+		if e.Branch == "main" || e.Branch == "master" || e.Branch == "(detached)" {
+			continue
+		}
+		options = append(options, huh.NewOption(e.Branch, e.Branch))
+	}
+	return options, nil
 }
 
 func init() {

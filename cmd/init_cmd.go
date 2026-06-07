@@ -53,8 +53,14 @@ var initCmd = &cobra.Command{
 
 		gitignorePath := filepath.Join(repoRoot, ".gitignore")
 		addToGitignore(gitignorePath, ".tak/")
+		addToGitignore(gitignorePath, ".tak.yml")
 
 		fmt.Println("Initialized tak in", repoRoot)
+		fmt.Println()
+		fmt.Println("  Shell integration (for tak cd):")
+		fmt.Println(`    eval "$(tak shell-init zsh)"   # add to ~/.zshrc`)
+		fmt.Println(`    eval "$(tak shell-init bash)"  # add to ~/.bashrc`)
+		fmt.Println(`    tak shell-init fish | source   # add to config.fish`)
 	},
 }
 

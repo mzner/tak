@@ -14,16 +14,16 @@ import (
 )
 
 var cdCmd = &cobra.Command{
-	Use:   "cd <branch>",
+	Use:   "cd [branch]",
 	Short: "Print the worktree path (use with shell hook for actual cd)",
 	Long: `Print the filesystem path of the worktree for the given branch.
 
+If no branch is specified, shows an interactive picker.
 With the shell hook installed (eval "$(tak shell-init zsh)"),
 this command changes your working directory directly.
 Without the hook, use: cd $(tak cd <branch>)`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		branch := args[0]
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
@@ -37,6 +37,17 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
+		}
+
+		var branch string
+		if len(args) > 0 {
+			branch = args[0]
+		} else {
+			branch, err = selectWorktree(wtSvc, "Select worktree:")
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
 		}
 
 		// Look up in state first

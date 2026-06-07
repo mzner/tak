@@ -60,10 +60,10 @@ tak shell-init fish | source
 | Command | Description |
 |---------|-------------|
 | `tak add <branch> [-t] [--pin]` | Create a worktree (`-t` opens tmux, `--pin` pins it) |
-| `tak rm <branch> [--force]` | Remove a worktree |
+| `tak rm [branch...] [--force]` | Remove worktree(s) — interactive multi-select if no arg |
 | `tak ls` | List all worktrees with status |
-| `tak cd <branch>` | Change to a worktree directory |
-| `tak open <branch>` | Open/switch to tmux window |
+| `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
+| `tak open [branch]` | Open/switch to tmux window — interactive if no arg |
 | `tak pin [branch]` | Pin a worktree (no arg = current) |
 | `tak unpin [branch]` | Unpin a worktree |
 | `tak doctor` | Health check all worktrees |
