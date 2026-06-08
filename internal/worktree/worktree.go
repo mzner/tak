@@ -111,6 +111,12 @@ func (s *Service) CurrentBranch() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// RenameBranch renames a local branch.
+func (s *Service) RenameBranch(oldName string, newName string) error {
+	_, err := s.runner.Run("git", "branch", "-m", oldName, newName)
+	return err
+}
+
 // DeleteBranch deletes a local branch. If force is true, uses -D (even if unmerged).
 func (s *Service) DeleteBranch(branch string, force bool) error {
 	flag := "-d"

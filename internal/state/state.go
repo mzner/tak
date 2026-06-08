@@ -55,6 +55,16 @@ func Track(s *State, branch string, path string, from string) {
 	})
 }
 
+// Rename updates a worktree entry's branch name.
+func Rename(s *State, oldBranch string, newBranch string) {
+	for i, w := range s.Worktrees {
+		if w.Branch == oldBranch {
+			s.Worktrees[i].Branch = newBranch
+			return
+		}
+	}
+}
+
 // Untrack removes a worktree entry from the state by branch name.
 func Untrack(s *State, branch string) {
 	for i, w := range s.Worktrees {

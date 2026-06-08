@@ -88,6 +88,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak exec <branch> -- <cmd>` | Run a command in a worktree without cd'ing |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
 | `tak open [branch]` | Open/switch to tmux window — interactive if no arg |
+| `tak rename <old> <new>` | Rename a worktree's branch |
 | `tak pin [branch]` | Pin a worktree (no arg = current) |
 | `tak unpin [branch]` | Unpin a worktree |
 | `tak doctor` | Health check all worktrees |

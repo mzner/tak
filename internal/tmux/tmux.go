@@ -114,6 +114,15 @@ type PaneSpec struct {
 }
 
 
+// RenameWindow renames a tmux window. No-op if window doesn't exist.
+func (s *Service) RenameWindow(oldName string, newName string) {
+	exists, err := s.HasWindow(oldName)
+	if err != nil || !exists {
+		return
+	}
+	s.runner.Run("tmux", "rename-window", "-t", oldName, newName)
+}
+
 // CloseWindow kills a tmux window by name. No-op if window doesn't exist.
 func (s *Service) CloseWindow(name string) error {
 	exists, err := s.HasWindow(name)
