@@ -95,11 +95,21 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			windowName := paths.TmuxSlug(branch)
 			tmuxSvc.CloseWindow(windowName)
 
+			// Find what branch is actually checked out at this path (may differ from requested branch)
+			var checkedOutBranch string
+			for _, e := range entries {
+				if e.Path == wtPath {
+					checkedOutBranch = e.Branch
+					break
+				}
+			}
+
 			if err := wtSvc.Remove(wtPath, rmForce); err != nil {
 				fmt.Fprintf(os.Stderr, "error removing %s: %s\n", branch, err)
 				continue
 			}
 
+			// Delete the requested branch
 			compareBranch := defaultBranch
 			if stateFound && stateEntry.From != "" {
 				compareBranch = stateEntry.From
@@ -112,7 +122,28 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 				}
 			}
 
+			// Also delete the checked-out branch if it differs (user switched branches inside the worktree)
+			if checkedOutBranch != "" && checkedOutBranch != branch && checkedOutBranch != defaultBranch {
+				wtSvc.DeleteBranch(checkedOutBranch, true)
+			}
+
+			// Also delete the original branch tracked in state for this path
+			// (handles case where user selected the current branch from picker but original differs)
+			for _, w := range st.Worktrees {
+				if w.Path == wtPath && w.Branch != branch && w.Branch != defaultBranch {
+					wtSvc.DeleteBranch(w.Branch, true)
+					break
+				}
+			}
+
 			state.Untrack(st, branch)
+			// Also untrack by path in case state has it under a different branch name
+			for _, w := range st.Worktrees {
+				if w.Path == wtPath {
+					state.Untrack(st, w.Branch)
+					break
+				}
+			}
 			fmt.Printf("Removed worktree %s\n", branch)
 		}
 
@@ -197,8 +228,9 @@ func removableWorktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], er
 
 	defaultBranch := wtSvc.DefaultBranch()
 	var options []huh.Option[string]
-	for _, e := range entries {
-		if e.Branch == defaultBranch || e.Branch == "(detached)" {
+	for i, e := range entries {
+		// Skip the main worktree (always first) and detached entries
+		if i == 0 || e.Branch == defaultBranch || e.Branch == "(detached)" {
 			continue
 		}
 		options = append(options, huh.NewOption(e.Branch, e.Branch))
@@ -206,8 +238,26 @@ func removableWorktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], er
 	return options, nil
 }
 
+func completeRemovableBranches(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	r := runner.NewExecRunner()
+	wtSvc := worktree.NewService(r)
+	entries, err := wtSvc.List()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	defaultBranch := wtSvc.DefaultBranch()
+	var branches []string
+	for i, e := range entries {
+		if i == 0 || e.Branch == defaultBranch || e.Branch == "(detached)" {
+			continue
+		}
+		branches = append(branches, e.Branch)
+	}
+	return branches, cobra.ShellCompDirectiveNoFileComp
+}
+
 func init() {
 	rmCmd.Flags().BoolVarP(&rmForce, "force", "F", false, "remove even with uncommitted changes")
-	rmCmd.ValidArgsFunction = completeWorktreeBranches
+	rmCmd.ValidArgsFunction = completeRemovableBranches
 	rootCmd.AddCommand(rmCmd)
 }
