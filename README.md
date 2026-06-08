@@ -136,6 +136,14 @@ hooks:
       command: npm ci
 ```
 
+**Hook types:**
+
+| Type | Description | Fields |
+|------|-------------|--------|
+| `copy` | Copy file/directory from main worktree to new | `from`, `to` (defaults to `from`) |
+| `symlink` | Create symlink from new worktree pointing to main | `from`, `to` (defaults to `from`) |
+| `command` | Run a shell command in the new worktree | `command`, `env` (optional), `work_dir` (optional) |
+
 ### Global: `~/.config/tak/config.yml`
 
 Optional. Sets defaults for all repos. Per-repo `.tak.yml` overrides these.
