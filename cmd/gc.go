@@ -115,6 +115,16 @@ Always skips pinned worktrees.`,
 			fmt.Printf("Removed %s (%s)\n", f.Branch, f.Message)
 		}
 
+		// Sync state: add worktrees git knows about but state doesn't
+		for _, entry := range entries {
+			if entry.Branch == wtSvc.DefaultBranch() || entry.Branch == "(detached)" {
+				continue
+			}
+			if _, found := state.FindByBranch(st, entry.Branch); !found {
+				state.Track(st, entry.Branch, entry.Path, "")
+			}
+		}
+
 		state.Save(statePath, st)
 
 		// Prune git's worktree registry for paths that no longer exist
