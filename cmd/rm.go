@@ -192,6 +192,6 @@ func removableWorktreeOptions(wtSvc *worktree.Service) ([]huh.Option[string], er
 }
 
 func init() {
-	rmCmd.Flags().BoolVar(&rmForce, "force", false, "remove even with uncommitted changes")
+	rmCmd.Flags().BoolVarP(&rmForce, "force", "F", false, "remove even with uncommitted changes")
 	rootCmd.AddCommand(rmCmd)
 }

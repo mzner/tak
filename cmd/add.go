@@ -125,7 +125,7 @@ func hasPrefix(branch string, prefix string) bool {
 
 func init() {
 	addCmd.Flags().BoolVarP(&addOpen, "open", "o", false, "open a tmux window for the worktree")
-	addCmd.Flags().BoolVar(&addPin, "pin", false, "pin the worktree (exclude from gc)")
-	addCmd.Flags().StringVar(&addFrom, "from", "", "base branch or commit for new branches (default: main)")
+	addCmd.Flags().BoolVarP(&addPin, "pin", "p", false, "pin the worktree (exclude from gc)")
+	addCmd.Flags().StringVarP(&addFrom, "from", "f", "", "base branch or commit for new branches (default: main)")
 	rootCmd.AddCommand(addCmd)
 }

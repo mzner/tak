@@ -128,7 +128,7 @@ Always skips pinned worktrees.`,
 }
 
 func init() {
-	gcCmd.Flags().BoolVar(&gcMerged, "merged", false, "remove worktrees whose branch is merged into main")
-	gcCmd.Flags().BoolVar(&gcDryRun, "dry-run", false, "show what would be removed without acting")
+	gcCmd.Flags().BoolVarP(&gcMerged, "merged", "m", false, "remove worktrees whose branch is merged into main")
+	gcCmd.Flags().BoolVarP(&gcDryRun, "dry-run", "n", false, "show what would be removed without acting")
 	rootCmd.AddCommand(gcCmd)
 }
