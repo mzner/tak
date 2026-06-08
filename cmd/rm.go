@@ -59,18 +59,29 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 		st, _ := state.Load(statePath)
 		defaultBranch := wtSvc.DefaultBranch()
 
+		entries, _ := wtSvc.List()
+
 		for _, branch := range branches {
 			if cfg.IsPinned(branch) {
 				fmt.Fprintf(os.Stderr, "skipping %s: pinned (run `tak unpin %s` first)\n", branch, branch)
 				continue
 			}
 
-			entry, found := state.FindByBranch(st, branch)
+			// Find path from git worktree list (source of truth), then state, then resolve
 			var wtPath string
-			if found {
-				wtPath = entry.Path
-			} else {
-				wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
+			for _, e := range entries {
+				if e.Branch == branch {
+					wtPath = e.Path
+					break
+				}
+			}
+			stateEntry, stateFound := state.FindByBranch(st, branch)
+			if wtPath == "" {
+				if stateFound {
+					wtPath = stateEntry.Path
+				} else {
+					wtPath = paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
+				}
 			}
 
 			if !rmForce {
@@ -90,8 +101,8 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			}
 
 			compareBranch := defaultBranch
-			if found && entry.From != "" {
-				compareBranch = entry.From
+			if stateFound && stateEntry.From != "" {
+				compareBranch = stateEntry.From
 			}
 			hasCommits, err := wtSvc.HasCommitsAhead(branch, compareBranch)
 			canDelete := err == nil && !hasCommits
