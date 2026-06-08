@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var lsStatus bool
+var (
+	lsStatus bool
+	lsJSON   bool
+)
 
 var lsCmd = &cobra.Command{
 	Use:   "ls [repo]",
@@ -46,6 +50,25 @@ var lsCmd = &cobra.Command{
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
+		}
+
+		if lsJSON {
+			type jsonEntry struct {
+				Branch string `json:"branch"`
+				Path   string `json:"path"`
+				Pinned bool   `json:"pinned"`
+			}
+			var result []jsonEntry
+			for _, e := range entries {
+				result = append(result, jsonEntry{
+					Branch: e.Branch,
+					Path:   e.Path,
+					Pinned: cfg.IsPinned(e.Branch),
+				})
+			}
+			data, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(data))
+			return
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
@@ -134,5 +157,6 @@ func listRemoteRepo(r *runner.ExecRunner, repoName string) {
 
 func init() {
 	lsCmd.Flags().BoolVarP(&lsStatus, "status", "s", false, "include dirty/clean status (slower)")
+	lsCmd.Flags().BoolVar(&lsJSON, "json", false, "output as JSON")
 	rootCmd.AddCommand(lsCmd)
 }
