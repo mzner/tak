@@ -64,9 +64,6 @@ Without an argument, shows info for the current worktree.`,
 			os.Exit(1)
 		}
 
-		// Base branch (merge-base)
-		mergeBase, _ := wtSvc.MergeBase(branch, defaultBranch)
-
 		// Commits ahead/behind
 		ahead, _ := wtSvc.CommitsAhead(branch, defaultBranch)
 		behind, _ := wtSvc.CommitsBehind(branch, defaultBranch)
@@ -84,9 +81,6 @@ Without an argument, shows info for the current worktree.`,
 		fmt.Printf("Branch:   %s\n", branch)
 		fmt.Printf("Path:     %s\n", wtPath)
 		fmt.Printf("Base:     %s\n", defaultBranch)
-		if mergeBase != "" {
-			fmt.Printf("Fork at:  %s\n", mergeBase[:minLen(len(mergeBase), 8)])
-		}
 		fmt.Printf("Ahead:    %d commit(s)\n", ahead)
 		fmt.Printf("Behind:   %d commit(s)\n", behind)
 		if found && !entry.CreatedAt.IsZero() {
@@ -115,13 +109,6 @@ func formatAge(created time.Time) string {
 	default:
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
-}
-
-func minLen(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func init() {
