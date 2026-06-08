@@ -153,6 +153,9 @@ func merge(global globalFile, local localFile, repoRoot string) Config {
 	if len(local.Tmux.Panes) > 0 {
 		cfg.Tmux = local.Tmux
 	}
+	if len(local.Hooks.PostCreate) > 0 {
+		cfg.Hooks = local.Hooks
+	}
 
 	return cfg
 }

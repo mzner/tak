@@ -9,6 +9,22 @@ type Config struct {
 	RepoRoot        string
 	LocalConfigPath string
 	Tmux            TmuxConfig
+	Hooks           HooksConfig
+}
+
+// HooksConfig holds lifecycle hook definitions.
+type HooksConfig struct {
+	PostCreate []HookAction `yaml:"post_create,omitempty"`
+}
+
+// HookAction represents a single hook step.
+type HookAction struct {
+	Type    string            `yaml:"type"`
+	From    string            `yaml:"from,omitempty"`
+	To      string            `yaml:"to,omitempty"`
+	Command string            `yaml:"command,omitempty"`
+	Env     map[string]string `yaml:"env,omitempty"`
+	WorkDir string            `yaml:"work_dir,omitempty"`
 }
 
 // TmuxConfig describes the pane layout for tak open.
@@ -31,8 +47,9 @@ type globalFile struct {
 
 // localFile represents the structure of .tak.yml in a repo root.
 type localFile struct {
-	WorktreeBase string     `yaml:"worktree_base"`
-	BranchPrefix string     `yaml:"branch_prefix"`
-	Pins         []string   `yaml:"pins"`
-	Tmux         TmuxConfig `yaml:"tmux,omitempty"`
+	WorktreeBase string      `yaml:"worktree_base"`
+	BranchPrefix string      `yaml:"branch_prefix"`
+	Pins         []string    `yaml:"pins"`
+	Tmux         TmuxConfig  `yaml:"tmux,omitempty"`
+	Hooks        HooksConfig `yaml:"hooks,omitempty"`
 }

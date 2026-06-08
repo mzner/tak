@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mzner/tak/internal/config"
+	"github.com/mzner/tak/internal/hooks"
 	"github.com/mzner/tak/internal/paths"
 	"github.com/mzner/tak/internal/runner"
 	"github.com/mzner/tak/internal/state"
@@ -98,6 +99,25 @@ If the branch exists (locally or remotely), it is checked out.`,
 		if addPin {
 			if err := cfg.AddPin(branch); err != nil {
 				fmt.Fprintln(os.Stderr, "warning: could not save pin:", err)
+			}
+		}
+
+		// Run post_create hooks
+		if len(cfg.Hooks.PostCreate) > 0 {
+			fmt.Fprintf(os.Stderr, "Running post_create hooks...\n")
+			var actions []hooks.Action
+			for _, h := range cfg.Hooks.PostCreate {
+				actions = append(actions, hooks.Action{
+					Type:    h.Type,
+					From:    h.From,
+					To:      h.To,
+					Command: h.Command,
+					Env:     h.Env,
+					WorkDir: h.WorkDir,
+				})
+			}
+			if err := hooks.RunPostCreate(actions, repoRoot, wtPath); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: hook failed: %s\n", err)
 			}
 		}
 
