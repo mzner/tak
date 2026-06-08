@@ -80,7 +80,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 |---------|-------------|
 | `tak add <branch> [-o] [-p] [-f base]` | Create a worktree (new branch from `-f` or default; checks out existing branches) |
 | `tak rm [branch...] [-F]` | Remove worktree(s) and branch — interactive if no arg |
-| `tak ls [-s]` | List all worktrees (`-s` includes dirty/clean status) |
+| `tak ls [-s] [--json]` | List all worktrees (`-s` dirty/clean, `--json` for scripting) |
 | `tak info [branch]` | Show worktree details (base, ahead/behind, age) |
 | `tak exec <branch> -- <cmd>` | Run a command in a worktree without cd'ing |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |

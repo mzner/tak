@@ -168,7 +168,7 @@ func (s *Service) MergeBase(branch string, target string) (string, error) {
 
 // Prune removes stale worktree entries from git's registry.
 func (s *Service) Prune() {
-	s.runner.Run("git", "worktree", "prune")
+	_, _ = s.runner.Run("git", "worktree", "prune")
 }
 
 // HasUnpushedCommits returns true if the branch has commits not pushed to its remote.

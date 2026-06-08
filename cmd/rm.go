@@ -154,7 +154,10 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			fmt.Printf("Removed worktree %s\n", branch)
 		}
 
-		state.Save(statePath, st)
+		if err := state.Save(statePath, st); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 	},
 }
 
