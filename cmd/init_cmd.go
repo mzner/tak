@@ -57,10 +57,14 @@ var initCmd = &cobra.Command{
 
 		fmt.Println("Initialized tak in", repoRoot)
 		fmt.Println()
-		fmt.Println("  Shell integration (for tak cd):")
-		fmt.Println(`    eval "$(tak shell-init zsh)"   # add to ~/.zshrc`)
-		fmt.Println(`    eval "$(tak shell-init bash)"  # add to ~/.bashrc`)
-		fmt.Println(`    tak shell-init fish | source   # add to config.fish`)
+		fmt.Println("  To use `tak cd`, add the following line to your shell config:")
+		fmt.Println()
+		fmt.Println(`    echo 'eval "$(tak shell-init zsh)"' >> ~/.zshrc`)
+		fmt.Println(`    echo 'eval "$(tak shell-init bash)"' >> ~/.bashrc`)
+		fmt.Println(`    echo 'tak shell-init fish | source' >> ~/.config/fish/config.fish`)
+		fmt.Println()
+		fmt.Println("  Without this, `tak cd` prints the path but cannot change your directory.")
+		fmt.Println("  After adding, restart your terminal or run: source ~/.zshrc")
 	},
 }
 
