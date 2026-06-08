@@ -171,6 +171,17 @@ func (s *Service) Prune() {
 	s.runner.Run("git", "worktree", "prune")
 }
 
+// HasUnpushedCommits returns true if the branch has commits not pushed to its remote.
+func (s *Service) HasUnpushedCommits(branch string) bool {
+	remote := "origin/" + branch
+	output, err := s.runner.Run("git", "rev-list", "--count", remote+".."+branch)
+	if err != nil {
+		// No remote tracking branch — check if branch has any commits at all
+		return true
+	}
+	return strings.TrimSpace(string(output)) != "0"
+}
+
 // BranchExists checks if a branch exists (local or remote tracking).
 func (s *Service) BranchExists(branch string) bool {
 	_, err := s.runner.Run("git", "rev-parse", "--verify", branch)

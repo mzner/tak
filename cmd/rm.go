@@ -109,17 +109,24 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 				continue
 			}
 
-			// Delete the requested branch
-			compareBranch := defaultBranch
-			if stateFound && stateEntry.From != "" {
-				compareBranch = stateEntry.From
+			// Delete the requested branch (skip if unpushed or has unmerged commits, unless -F)
+			deleteBranch := rmForce
+			if !deleteBranch {
+				compareBranch := defaultBranch
+				if stateFound && stateEntry.From != "" {
+					compareBranch = stateEntry.From
+				}
+				hasCommits, err := wtSvc.HasCommitsAhead(branch, compareBranch)
+				noLocalWork := err == nil && !hasCommits
+				pushed := !wtSvc.HasUnpushedCommits(branch)
+				deleteBranch = noLocalWork || pushed
 			}
-			hasCommits, err := wtSvc.HasCommitsAhead(branch, compareBranch)
-			canDelete := err == nil && !hasCommits
-			if canDelete || rmForce {
+			if deleteBranch {
 				if err := wtSvc.DeleteBranch(branch, true); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: could not delete branch %s: %s\n", branch, err)
 				}
+			} else {
+				fmt.Fprintf(os.Stderr, "warning: %s has unpushed commits, branch kept (use -F to force delete)\n", branch)
 			}
 
 			// Also delete the checked-out branch if it differs (user switched branches inside the worktree)

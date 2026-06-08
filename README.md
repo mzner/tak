@@ -182,7 +182,7 @@ Tab completion shows repo names and their branches.
 
 - `tak add` creates a new branch from the default branch (or `--from`). If the branch already exists locally or remotely, it checks it out without creating a new one
 - Worktrees are created as sibling directories by default: `~/projects/web` → `~/projects/web--feature--auth`
-- `tak rm` removes the worktree and deletes the branch (keeps it if there are unmerged commits, unless `-F`)
+- `tak rm` removes the worktree and deletes the branch (keeps it if there are unpushed/unmerged commits, unless `-F`)
 - `tak open` uses the `tmux` config from `.tak.yml` to create pane layouts, or a plain window if unconfigured
 - Pins are stored in `.tak.yml` — recoverable config, not ephemeral state
 - State cache (`.tak/state.json`) is rebuilt automatically if deleted
