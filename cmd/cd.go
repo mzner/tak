@@ -88,5 +88,6 @@ Without the hook, use: cd $(tak cd <branch>)`,
 }
 
 func init() {
+	cdCmd.ValidArgsFunction = completeWorktreeBranches
 	rootCmd.AddCommand(cdCmd)
 }

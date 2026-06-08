@@ -113,5 +113,6 @@ func openTmuxWindow(tmuxSvc *tmux.Service, cfg *config.Config, windowName string
 }
 
 func init() {
+	openCmd.ValidArgsFunction = completeWorktreeBranches
 	rootCmd.AddCommand(openCmd)
 }

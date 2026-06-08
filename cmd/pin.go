@@ -126,6 +126,8 @@ func isSubdir(child, parent string) bool {
 }
 
 func init() {
+	pinCmd.ValidArgsFunction = completeWorktreeBranches
+	unpinCmd.ValidArgsFunction = completeWorktreeBranches
 	rootCmd.AddCommand(pinCmd)
 	rootCmd.AddCommand(unpinCmd)
 }

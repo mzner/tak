@@ -118,5 +118,6 @@ func formatAge(created time.Time) string {
 }
 
 func init() {
+	infoCmd.ValidArgsFunction = completeWorktreeBranches
 	rootCmd.AddCommand(infoCmd)
 }
