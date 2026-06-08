@@ -4,9 +4,6 @@ Git worktree manager with pinning, tmux integration, and lifecycle tools.
 
 tak makes git worktrees easy to create, navigate, and clean up. Pin long-lived worktrees, jump between them with tmux, and garbage-collect stale ones.
 
-<!-- TODO: Add demo GIF here (record with https://github.com/charmbracelet/vhs) -->
-<!-- ![tak demo](./docs/demo.gif) -->
-
 ## Why tak?
 
 Git worktrees let you work on multiple branches simultaneously without stashing or switching. But managing them by hand is tedious — you have to remember paths, manually clean up, and set up your dev environment every time.

@@ -39,13 +39,14 @@ tak/
 │   ├── worktree/     # Git worktree operations
 │   ├── tmux/         # Tmux window management
 │   ├── shell/        # Shell hook generation
+│   ├── hooks/        # Lifecycle hooks (copy, symlink, command)
 │   └── doctor/       # Health checks
 └── testdata/         # Test fixtures
 ```
 
 ### Key Design Principles
 
-- **cmd/ is thin**: parse flags -> call internal/ -> format output. No logic.
+- **cmd/ is thin**: parse flags → call internal/ → format output. No logic.
 - **internal/ packages are independent**: each has one job, tested in isolation.
 - **CommandRunner for testability**: packages don't call os/exec directly. They accept a runner interface. Tests use FakeRunner.
 - **Shell out, don't embed**: we call `git` and `tmux` binaries rather than using Go libraries. Simpler, debuggable, fewer deps.
@@ -55,8 +56,11 @@ tak/
 1. Create `cmd/mycommand.go`
 2. Define a `cobra.Command` that parses flags and calls into `internal/` packages
 3. Register it in `init()` with `rootCmd.AddCommand(myCmd)`
-4. Add any new domain logic to the appropriate `internal/` package (or create a new one)
-5. Write tests for the domain logic using FakeRunner
+4. Add `ValidArgsFunction = completeWorktreeBranches` if it takes a branch argument
+5. Add any new domain logic to the appropriate `internal/` package (or create a new one)
+6. Write tests for the domain logic using FakeRunner
+7. Add an integration test to `test_integration_test.go`
+8. Update README command table and docs
 
 ## Adding a New Internal Package
 
@@ -72,6 +76,7 @@ tak/
 - Every exported function and type needs a doc comment
 - Package-level `doc.go` in every `internal/` package
 - Error messages: lowercase, no period, actionable
+- Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
 
 ## Pull Requests
 
