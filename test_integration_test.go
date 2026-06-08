@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -325,7 +326,152 @@ func TestIntegration_BranchPrefix(t *testing.T) {
 	t.Cleanup(func() { os.RemoveAll(wtPath) })
 }
 
+func TestIntegration_Exec(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	initTakWithLocalBase(t, repoDir)
+
+	runTak(t, tmpBin, repoDir, "add", "feature/exec-test")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--exec-test")
+
+	// Exec pwd in the worktree
+	output := runTak(t, tmpBin, repoDir, "exec", "feature/exec-test", "--", "pwd")
+	assert.Contains(t, output, wtPath)
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_Rename(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	initTakWithLocalBase(t, repoDir)
+
+	runTak(t, tmpBin, repoDir, "add", "feature/old-name")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--old-name")
+
+	// Rename
+	output := runTak(t, tmpBin, repoDir, "rename", "feature/old-name", "feature/new-name")
+	assert.Contains(t, output, "Renamed")
+
+	// ls should show new name
+	output = runTak(t, tmpBin, repoDir, "ls")
+	assert.Contains(t, output, "feature/new-name")
+	assert.NotContains(t, output, "feature/old-name")
+
+	// git branch should show new name
+	branches := runGitOutput(t, repoDir, "branch")
+	assert.Contains(t, branches, "feature/new-name")
+	assert.NotContains(t, branches, "feature/old-name")
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_Hooks(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+
+	// Write config with hooks and explicit worktree_base
+	parentDir := filepath.Dir(repoDir)
+	configContent := fmt.Sprintf(`worktree_base: %s
+pins: []
+hooks:
+  post_create:
+    - type: copy
+      from: .env
+      to: .env
+    - type: command
+      command: echo "hook-ran" > hook-proof.txt
+`, parentDir)
+	os.WriteFile(filepath.Join(repoDir, ".tak.yml"), []byte(configContent), 0644)
+	os.MkdirAll(filepath.Join(repoDir, ".tak"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".env"), []byte("SECRET=test123"), 0644)
+
+	runTak(t, tmpBin, repoDir, "add", "feature/hooks")
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+"--feature--hooks")
+
+	// Verify copy hook worked
+	envContent, err := os.ReadFile(filepath.Join(wtPath, ".env"))
+	require.NoError(t, err)
+	assert.Equal(t, "SECRET=test123", string(envContent))
+
+	// Verify command hook worked
+	proofContent, err := os.ReadFile(filepath.Join(wtPath, "hook-proof.txt"))
+	require.NoError(t, err)
+	assert.Contains(t, string(proofContent), "hook-ran")
+
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+func TestIntegration_RepoAddAndLs(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	repoDir := t.TempDir()
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+
+	// Register the repo
+	output := runTak(t, tmpBin, repoDir, "repo", "add")
+	assert.Contains(t, output, "Registered")
+
+	// List should show it
+	output = runTak(t, tmpBin, repoDir, "repo", "ls")
+	assert.Contains(t, output, filepath.Base(repoDir))
+
+	// Remove it
+	output = runTak(t, tmpBin, repoDir, "repo", "rm", filepath.Base(repoDir))
+	assert.Contains(t, output, "Unregistered")
+}
+
+func TestIntegration_RepoAddInvalidPath(t *testing.T) {
+	tmpBin := filepath.Join(t.TempDir(), "tak")
+	buildCmd := exec.Command("go", "build", "-o", tmpBin, ".")
+	buildCmd.Dir = projectRoot(t)
+	require.NoError(t, buildCmd.Run())
+
+	output := runTak(t, tmpBin, t.TempDir(), "repo", "add", "/nonexistent/path")
+	assert.Contains(t, output, "not a directory")
+}
+
 // Helper functions
+
+func initTakWithLocalBase(t *testing.T, repoDir string) {
+	t.Helper()
+	// Use the parent dir of the repo as worktree_base to avoid global config override
+	parentDir := filepath.Dir(repoDir)
+	configContent := fmt.Sprintf("worktree_base: %s\npins: []\n", parentDir)
+	os.WriteFile(filepath.Join(repoDir, ".tak.yml"), []byte(configContent), 0644)
+	os.MkdirAll(filepath.Join(repoDir, ".tak"), 0755)
+}
+
+var testHome string
+
+func TestMain(m *testing.M) {
+	// Use a temp HOME so tests don't read the user's global tak config
+	dir, _ := os.MkdirTemp("", "tak-test-home")
+	testHome = dir
+	os.Exit(m.Run())
+}
 
 func runTak(t *testing.T, bin string, dir string, args ...string) string {
 	t.Helper()
@@ -336,6 +482,7 @@ func runTakDir(t *testing.T, bin string, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "HOME="+testHome)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Logf("tak %s failed: %s\nOutput: %s", strings.Join(args, " "), err, output)

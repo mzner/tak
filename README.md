@@ -81,7 +81,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 
 | Command | Description |
 |---------|-------------|
-| `tak add <branch> [-o] [-p] [-f base]` | Create a worktree (`-o` opens in tmux, `-p` pins, `-f` sets base branch) |
+| `tak add <branch> [-o] [-p] [-f base]` | Create a worktree (new branch from `-f` or default; checks out existing branches) |
 | `tak rm [branch...] [-F]` | Remove worktree(s) and branch — interactive if no arg |
 | `tak ls [-s]` | List all worktrees (`-s` includes dirty/clean status) |
 | `tak info [branch]` | Show worktree details (base, ahead/behind, age) |
@@ -96,6 +96,9 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak layout` | Configure tmux pane layout (interactive wizard) |
 | `tak config` | Show config file paths and contents |
 | `tak init` | Initialize tak in a repo |
+| `tak repo add [path...]` | Register repo(s) for cross-repo access |
+| `tak repo rm <name>` | Unregister a repo |
+| `tak repo ls` | List registered repos |
 | `tak completion <shell>` | Generate shell completion script |
 | `tak shell-init <shell>` | Print shell hook for zsh/bash/fish |
 
@@ -157,8 +160,30 @@ repos:
   ocis: ~/projects/ocis
 ```
 
+Register repos with `tak repo add`:
+
+```bash
+tak repo add                              # register current directory
+tak repo add ~/projects/web ~/projects/api  # register multiple at once
+tak repo ls                               # list registered repos
+tak repo rm web                           # unregister
+```
+
+### Cross-repo access
+
+Once repos are registered, access them from anywhere:
+
+```bash
+tak ls web                     # list web's worktrees
+tak cd web:feature/auth        # cd to web's feature/auth worktree
+tak exec web:main -- git pull  # run command in web's main worktree
+```
+
+Tab completion shows repo names and their branches.
+
 ## How It Works
 
+- `tak add` creates a new branch from the default branch (or `--from`). If the branch already exists locally or remotely, it checks it out without creating a new one
 - Worktrees are created as sibling directories by default: `~/projects/web` → `~/projects/web--feature--auth`
 - `tak rm` removes the worktree and deletes the branch (keeps it if there are unmerged commits, unless `-F`)
 - `tak open` uses the `tmux` config from `.tak.yml` to create pane layouts, or a plain window if unconfigured
