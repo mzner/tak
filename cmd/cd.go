@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mzner/tak/internal/config"
 	"github.com/mzner/tak/internal/paths"
@@ -27,6 +28,22 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
+		var branch string
+		if len(args) > 0 {
+			branch = args[0]
+		}
+
+		// Handle repo:branch syntax (cross-repo access)
+		if branch != "" && strings.Contains(branch, ":") {
+			path, err := resolveRemoteWorktree(r, branch)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
+			fmt.Println(path)
+			return
+		}
+
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error: not in a git repository")
@@ -39,10 +56,7 @@ Without the hook, use: cd $(tak cd <branch>)`,
 			os.Exit(1)
 		}
 
-		var branch string
-		if len(args) > 0 {
-			branch = args[0]
-		} else {
+		if branch == "" {
 			branch, err = selectWorktree(wtSvc, "Select worktree:")
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)

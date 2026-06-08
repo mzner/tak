@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
+	"github.com/mzner/tak/internal/config"
 	"github.com/mzner/tak/internal/runner"
 	"github.com/mzner/tak/internal/worktree"
 	"github.com/spf13/cobra"
@@ -41,19 +43,68 @@ func completeWorktreeBranches(cmd *cobra.Command, args []string, toComplete stri
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
+
+	// If user is typing repo:branch, complete branches from that repo
+	if parts := strings.SplitN(toComplete, ":", 2); len(parts) == 2 {
+		return completeRemoteRepoBranches(parts[0], parts[1])
+	}
+
 	r := runner.NewExecRunner()
 	wtSvc := worktree.NewService(r)
+
+	// Try local worktree branches first
 	entries, err := wtSvc.List()
+	if err == nil && len(entries) > 0 {
+		var completions []string
+		for _, e := range entries {
+			if e.Branch != "(detached)" {
+				completions = append(completions, e.Branch)
+			}
+		}
+		return completions, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Not in a repo — show repo names only
+	repos, err := config.LoadGlobal()
+	if err == nil {
+		var completions []string
+		for name := range repos {
+			completions = append(completions, name+":")
+		}
+		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+	}
+
+	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeRemoteRepoBranches(repoName string, prefix string) ([]string, cobra.ShellCompDirective) {
+	repos, err := config.LoadGlobal()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	var branches []string
-	for _, e := range entries {
-		if e.Branch != "(detached)" {
-			branches = append(branches, e.Branch)
+	repoPath, ok := repos[repoName]
+	if !ok {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	r := runner.NewExecRunner()
+	wtSvc := worktree.NewService(r)
+
+	// Run git worktree list in the target repo
+	output, err := r.RunInDir(repoPath, "git", "worktree", "list", "--porcelain")
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	_ = wtSvc // unused but keeps import clean
+	var completions []string
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.HasPrefix(line, "branch refs/heads/") {
+			branch := strings.TrimPrefix(line, "branch refs/heads/")
+			completions = append(completions, repoName+":"+branch)
 		}
 	}
-	return branches, cobra.ShellCompDirectiveNoFileComp
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
 func init() {

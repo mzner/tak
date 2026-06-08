@@ -1,11 +1,86 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
+
+// LoadGlobal reads only the global config file. Used for cross-repo access.
+func LoadGlobal() (map[string]string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	globalPath := filepath.Join(home, ".config", "tak", "config.yml")
+	global, err := loadGlobalFile(globalPath)
+	if err != nil {
+		return nil, err
+	}
+	repos := make(map[string]string)
+	for name, path := range global.Repos {
+		repos[name] = expandHome(path)
+	}
+	return repos, nil
+}
+
+// AddRepo registers a repo in the global config.
+func AddRepo(name string, path string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	globalPath := filepath.Join(home, ".config", "tak", "config.yml")
+
+	global, err := loadGlobalFile(globalPath)
+	if err != nil {
+		return err
+	}
+
+	if global.Repos == nil {
+		global.Repos = make(map[string]string)
+	}
+	global.Repos[name] = path
+
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0755); err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(global)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(globalPath, data, 0644)
+}
+
+// RemoveRepo unregisters a repo from the global config.
+func RemoveRepo(name string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	globalPath := filepath.Join(home, ".config", "tak", "config.yml")
+
+	global, err := loadGlobalFile(globalPath)
+	if err != nil {
+		return err
+	}
+
+	if global.Repos == nil {
+		return fmt.Errorf("repo '%s' not found", name)
+	}
+	if _, ok := global.Repos[name]; !ok {
+		return fmt.Errorf("repo '%s' not found", name)
+	}
+	delete(global.Repos, name)
+
+	data, err := yaml.Marshal(global)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(globalPath, data, 0644)
+}
 
 // Load reads and merges the global and local config files.
 func Load(repoRoot string, globalConfigPath string) (*Config, error) {

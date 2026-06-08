@@ -15,11 +15,19 @@ import (
 var lsStatus bool
 
 var lsCmd = &cobra.Command{
-	Use:   "ls",
+	Use:   "ls [repo]",
 	Short: "List all worktrees",
-	Long:  "List all git worktrees with their branch, path, and pin status. Use -s to include dirty/clean state.",
+	Long:  "List all git worktrees with their branch, path, and pin status. Use -s to include dirty/clean state. Pass a repo name to list a different repo's worktrees.",
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		r := runner.NewExecRunner()
+
+		// Cross-repo: tak ls web
+		if len(args) > 0 {
+			listRemoteRepo(r, args[0])
+			return
+		}
+
 		wtSvc := worktree.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
@@ -83,6 +91,45 @@ func shortenHome(path string) string {
 		return "~" + path[len(home):]
 	}
 	return path
+}
+
+func listRemoteRepo(r *runner.ExecRunner, repoName string) {
+	repos, err := config.LoadGlobal()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	repoPath, ok := repos[repoName]
+	if !ok {
+		available := make([]string, 0, len(repos))
+		for name := range repos {
+			available = append(available, name)
+		}
+		fmt.Fprintf(os.Stderr, "error: unknown repo '%s' (available: %s)\n", repoName, strings.Join(available, ", "))
+		os.Exit(1)
+	}
+
+	output, err := r.RunInDir(repoPath, "git", "worktree", "list", "--porcelain")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+	fmt.Fprintln(w, "BRANCH\tPATH")
+
+	var currentPath string
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.HasPrefix(line, "worktree ") {
+			currentPath = strings.TrimPrefix(line, "worktree ")
+		}
+		if strings.HasPrefix(line, "branch refs/heads/") {
+			branch := strings.TrimPrefix(line, "branch refs/heads/")
+			fmt.Fprintf(w, "%s\t%s\n", branch, shortenHome(currentPath))
+		}
+	}
+	w.Flush()
 }
 
 func init() {
