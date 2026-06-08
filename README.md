@@ -83,7 +83,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 |---------|-------------|
 | `tak add <branch> [-o] [-p] [-f base]` | Create a worktree (`-o` opens in tmux, `-p` pins, `-f` sets base branch) |
 | `tak rm [branch...] [-F]` | Remove worktree(s) and branch — interactive if no arg |
-| `tak ls` | List all worktrees with status |
+| `tak ls [-s]` | List all worktrees (`-s` includes dirty/clean status) |
 | `tak info [branch]` | Show worktree details (base, ahead/behind, age) |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
 | `tak open [branch]` | Open/switch to tmux window — interactive if no arg |
@@ -94,6 +94,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak layout` | Configure tmux pane layout (interactive wizard) |
 | `tak config` | Show config file paths and contents |
 | `tak init` | Initialize tak in a repo |
+| `tak completion <shell>` | Generate shell completion script |
 | `tak shell-init <shell>` | Print shell hook for zsh/bash/fish |
 
 ## Configuration
@@ -121,6 +122,18 @@ tmux:
       command: pnpm dev
     - name: shell
       command: ""
+
+# Optional: hooks run after tak add creates a worktree
+hooks:
+  post_create:
+    - type: copy
+      from: .env
+      to: .env
+    - type: symlink
+      from: node_modules
+      to: node_modules
+    - type: command
+      command: npm ci
 ```
 
 ### Global: `~/.config/tak/config.yml`
