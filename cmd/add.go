@@ -67,6 +67,12 @@ If the branch exists (locally or remotely), it is checked out.`,
 		// Determine if branch is new or existing
 		newBranch := !wtSvc.BranchExists(branch)
 
+		if !newBranch && addFrom != "" {
+			fmt.Fprintf(os.Stderr, "error: branch '%s' already exists, --from is ignored for existing branches\n", branch)
+			fmt.Fprintf(os.Stderr, "  To recreate from %s: tak rm %s && tak add %s -f %s\n", addFrom, branch, branch, addFrom)
+			os.Exit(1)
+		}
+
 		// Resolve start point for new branches
 		startPoint := addFrom
 		if newBranch && startPoint == "" {
@@ -85,7 +91,7 @@ If the branch exists (locally or remotely), it is checked out.`,
 		state.EnsureDir(takDir)
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
-		state.Track(st, branch, wtPath)
+		state.Track(st, branch, wtPath, startPoint)
 		state.Save(statePath, st)
 
 		// Pin if requested

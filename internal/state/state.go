@@ -41,7 +41,7 @@ func Save(path string, s *State) error {
 
 // Track adds a worktree entry to the state.
 // If the branch is already tracked, this is a no-op.
-func Track(s *State, branch string, path string) {
+func Track(s *State, branch string, path string, from string) {
 	for _, w := range s.Worktrees {
 		if w.Branch == branch {
 			return
@@ -51,6 +51,7 @@ func Track(s *State, branch string, path string) {
 		Branch:    branch,
 		Path:      path,
 		CreatedAt: time.Now().UTC(),
+		From:      from,
 	})
 }
 

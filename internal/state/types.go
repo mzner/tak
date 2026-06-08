@@ -12,4 +12,5 @@ type WorktreeEntry struct {
 	Branch    string    `json:"branch"`
 	Path      string    `json:"path"`
 	CreatedAt time.Time `json:"created_at"`
+	From      string    `json:"from,omitempty"`
 }

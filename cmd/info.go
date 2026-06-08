@@ -48,6 +48,8 @@ Without an argument, shows info for the current worktree.`,
 			}
 		}
 
+		fmt.Fprintf(os.Stderr, "Loading...\n")
+
 		defaultBranch := wtSvc.DefaultBranch()
 
 		// Find path
@@ -64,23 +66,27 @@ Without an argument, shows info for the current worktree.`,
 			os.Exit(1)
 		}
 
-		// Commits ahead/behind
-		ahead, _ := wtSvc.CommitsAhead(branch, defaultBranch)
-		behind, _ := wtSvc.CommitsBehind(branch, defaultBranch)
-
-		// Age from state
+		// Determine comparison branch (from state, or default)
 		takDir := filepath.Join(repoRoot, ".tak")
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
 		entry, found := state.FindByBranch(st, branch)
 
+		compareBranch := defaultBranch
+		if found && entry.From != "" {
+			compareBranch = entry.From
+		}
+
+		// Commits ahead/behind
+		ahead, _ := wtSvc.CommitsAhead(branch, compareBranch)
+		behind, _ := wtSvc.CommitsBehind(branch, compareBranch)
+
 		// Dirty
 		dirty, _ := wtSvc.IsDirty(wtPath)
 
 		// Print
-		fmt.Printf("Branch:   %s\n", branch)
 		fmt.Printf("Path:     %s\n", wtPath)
-		fmt.Printf("Base:     %s\n", defaultBranch)
+		fmt.Printf("From:     %s\n", compareBranch)
 		fmt.Printf("Ahead:    %d commit(s)\n", ahead)
 		fmt.Printf("Behind:   %d commit(s)\n", behind)
 		if found && !entry.CreatedAt.IsZero() {

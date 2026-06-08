@@ -49,11 +49,12 @@ func TestSave_And_Reload(t *testing.T) {
 
 func TestTrack(t *testing.T) {
 	s := &State{}
-	Track(s, "feature/auth", "/tmp/web--feature--auth")
+	Track(s, "feature/auth", "/tmp/web--feature--auth", "main")
 
 	assert.Len(t, s.Worktrees, 1)
 	assert.Equal(t, "feature/auth", s.Worktrees[0].Branch)
 	assert.Equal(t, "/tmp/web--feature--auth", s.Worktrees[0].Path)
+	assert.Equal(t, "main", s.Worktrees[0].From)
 	assert.False(t, s.Worktrees[0].CreatedAt.IsZero())
 }
 
@@ -63,7 +64,7 @@ func TestTrack_DuplicateIgnored(t *testing.T) {
 			{Branch: "feature/auth", Path: "/tmp/path"},
 		},
 	}
-	Track(s, "feature/auth", "/tmp/path")
+	Track(s, "feature/auth", "/tmp/path", "main")
 	assert.Len(t, s.Worktrees, 1)
 }
 

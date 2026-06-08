@@ -89,7 +89,11 @@ Refuses to remove dirty worktrees (use --force to override).`,
 				continue
 			}
 
-			hasCommits, err := wtSvc.HasCommitsAhead(branch, defaultBranch)
+			compareBranch := defaultBranch
+			if found && entry.From != "" {
+				compareBranch = entry.From
+			}
+			hasCommits, err := wtSvc.HasCommitsAhead(branch, compareBranch)
 			canDelete := err == nil && !hasCommits
 			if canDelete || rmForce {
 				if err := wtSvc.DeleteBranch(branch, true); err != nil {
