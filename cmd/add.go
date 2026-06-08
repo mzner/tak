@@ -74,6 +74,7 @@ If the branch exists (locally or remotely), it is checked out.`,
 		}
 
 		// Create worktree
+		fmt.Fprintf(os.Stderr, "Creating worktree %s...\n", branch)
 		if err := wtSvc.Add(wtPath, branch, newBranch, startPoint); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
