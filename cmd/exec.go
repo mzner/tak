@@ -25,23 +25,16 @@ Examples:
   tak exec feature/auth -- git pull
   tak exec feature/auth -- pnpm test
   tak exec feature/auth -- make build`,
-	Args:               cobra.MinimumNArgs(1),
-	DisableFlagParsing: true,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeWorktreeBranches,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Split args at --
-		var branch string
-		var cmdArgs []string
-		for i, a := range args {
-			if a == "--" {
-				branch = args[0]
-				cmdArgs = args[i+1:]
-				break
-			}
-		}
-		if branch == "" || len(cmdArgs) == 0 {
+		dashIdx := cmd.ArgsLenAtDash()
+		if dashIdx < 1 || dashIdx >= len(args) {
 			fmt.Fprintln(os.Stderr, "usage: tak exec <branch> -- <command>")
 			os.Exit(1)
 		}
+		branch := args[0]
+		cmdArgs := args[dashIdx:]
 
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
