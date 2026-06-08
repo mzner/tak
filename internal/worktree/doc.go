@@ -11,6 +11,6 @@
 // Example:
 //
 //	svc := worktree.NewService(runner.NewExecRunner())
-//	err := svc.Add("/path/to/worktree", "feature/auth", true)
+//	err := svc.Add("/path/to/worktree", "feature/auth", true, "main")
 //	entries, err := svc.List()
 package worktree

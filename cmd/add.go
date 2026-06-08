@@ -17,6 +17,7 @@ import (
 var (
 	addOpen bool
 	addPin  bool
+	addFrom string
 )
 
 var addCmd = &cobra.Command{
@@ -24,7 +25,7 @@ var addCmd = &cobra.Command{
 	Short: "Create a new worktree",
 	Long: `Create a new git worktree for the specified branch.
 
-If the branch doesn't exist, it is created from the current HEAD.
+If the branch doesn't exist, it is created from the default branch (or --from).
 If the branch exists (locally or remotely), it is checked out.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -66,8 +67,14 @@ If the branch exists (locally or remotely), it is checked out.`,
 		// Determine if branch is new or existing
 		newBranch := !wtSvc.BranchExists(branch)
 
+		// Resolve start point for new branches
+		startPoint := addFrom
+		if newBranch && startPoint == "" {
+			startPoint = wtSvc.DefaultBranch()
+		}
+
 		// Create worktree
-		if err := wtSvc.Add(wtPath, branch, newBranch); err != nil {
+		if err := wtSvc.Add(wtPath, branch, newBranch, startPoint); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
@@ -119,5 +126,6 @@ func hasPrefix(branch string, prefix string) bool {
 func init() {
 	addCmd.Flags().BoolVarP(&addOpen, "open", "o", false, "open a tmux window for the worktree")
 	addCmd.Flags().BoolVar(&addPin, "pin", false, "pin the worktree (exclude from gc)")
+	addCmd.Flags().StringVar(&addFrom, "from", "", "base branch or commit for new branches (default: main)")
 	rootCmd.AddCommand(addCmd)
 }

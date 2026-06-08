@@ -24,10 +24,14 @@ func NewService(r runner.CommandRunner) *Service {
 
 // Add creates a new worktree. If newBranch is true, it creates the branch
 // with -b. If false, it checks out an existing branch.
-func (s *Service) Add(path string, branch string, newBranch bool) error {
+// startPoint optionally specifies the commit/branch to start from (only for new branches).
+func (s *Service) Add(path string, branch string, newBranch bool, startPoint string) error {
 	args := []string{"worktree", "add", path}
 	if newBranch {
 		args = append(args, "-b", branch)
+		if startPoint != "" {
+			args = append(args, startPoint)
+		}
 	} else {
 		args = append(args, branch)
 	}

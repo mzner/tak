@@ -12,12 +12,23 @@ func TestAdd_NewBranch(t *testing.T) {
 	fake := runner.NewFakeRunner(nil)
 	svc := NewService(fake)
 
-	err := svc.Add("/tmp/web--feature--auth", "feature/auth", true)
+	err := svc.Add("/tmp/web--feature--auth", "feature/auth", true, "main")
 	require.NoError(t, err)
 
 	require.Equal(t, 1, fake.CallCount())
 	call := fake.Calls[0]
 	assert.Equal(t, "git", call.Name)
+	assert.Equal(t, []string{"worktree", "add", "/tmp/web--feature--auth", "-b", "feature/auth", "main"}, call.Args)
+}
+
+func TestAdd_NewBranch_NoStartPoint(t *testing.T) {
+	fake := runner.NewFakeRunner(nil)
+	svc := NewService(fake)
+
+	err := svc.Add("/tmp/web--feature--auth", "feature/auth", true, "")
+	require.NoError(t, err)
+
+	call := fake.Calls[0]
 	assert.Equal(t, []string{"worktree", "add", "/tmp/web--feature--auth", "-b", "feature/auth"}, call.Args)
 }
 
@@ -25,7 +36,7 @@ func TestAdd_ExistingBranch(t *testing.T) {
 	fake := runner.NewFakeRunner(nil)
 	svc := NewService(fake)
 
-	err := svc.Add("/tmp/web--feature--auth", "feature/auth", false)
+	err := svc.Add("/tmp/web--feature--auth", "feature/auth", false, "")
 	require.NoError(t, err)
 
 	call := fake.Calls[0]
