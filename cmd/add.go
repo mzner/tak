@@ -78,6 +78,12 @@ If the branch exists (locally or remotely), it is checked out.`,
 		startPoint := addFrom
 		if newBranch && startPoint == "" {
 			startPoint = wtSvc.DefaultBranch()
+			if !wtSvc.BranchExists(startPoint) {
+				fmt.Fprintf(os.Stderr, "error: repository has no commits yet\n\n")
+				fmt.Fprintf(os.Stderr, "  Create an initial commit first:\n")
+				fmt.Fprintf(os.Stderr, "    git commit --allow-empty -m \"initial\"\n")
+				os.Exit(1)
+			}
 		}
 
 		// Create worktree
