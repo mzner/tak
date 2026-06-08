@@ -24,7 +24,7 @@ var rmCmd = &cobra.Command{
 
 If no branch is specified, shows an interactive picker.
 Refuses to remove pinned worktrees (use tak unpin first).
-Refuses to remove dirty worktrees (use --force to override).`,
+Refuses to remove dirty worktrees (use -F/--force to override).`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		r := runner.NewExecRunner()
@@ -76,7 +76,7 @@ Refuses to remove dirty worktrees (use --force to override).`,
 			if !rmForce {
 				dirty, err := wtSvc.IsDirty(wtPath)
 				if err == nil && dirty {
-					fmt.Fprintf(os.Stderr, "skipping %s: uncommitted changes (use --force)\n", branch)
+					fmt.Fprintf(os.Stderr, "skipping %s: uncommitted changes (use -F to force)\n", branch)
 					continue
 				}
 			}

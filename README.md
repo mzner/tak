@@ -81,8 +81,8 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 
 | Command | Description |
 |---------|-------------|
-| `tak add <branch> [-o] [--pin]` | Create a worktree (`-o` opens in tmux, `--pin` pins it) |
-| `tak rm [branch...] [--force]` | Remove worktree(s) and branch — interactive if no arg |
+| `tak add <branch> [-o] [-p] [-f base]` | Create a worktree (`-o` opens in tmux, `-p` pins, `-f` sets base branch) |
+| `tak rm [branch...] [-F]` | Remove worktree(s) and branch — interactive if no arg |
 | `tak ls` | List all worktrees with status |
 | `tak info [branch]` | Show worktree details (base, ahead/behind, age) |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
@@ -90,7 +90,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak pin [branch]` | Pin a worktree (no arg = current) |
 | `tak unpin [branch]` | Unpin a worktree |
 | `tak doctor` | Health check all worktrees |
-| `tak gc [--merged] [--dry-run]` | Clean up broken worktrees (+ merged with `--merged`) |
+| `tak gc [-m] [-n]` | Clean up broken worktrees (`-m` includes merged, `-n` dry run) |
 | `tak layout` | Configure tmux pane layout (interactive wizard) |
 | `tak config` | Show config file paths and contents |
 | `tak init` | Initialize tak in a repo |
@@ -137,7 +137,7 @@ repos:
 ## How It Works
 
 - Worktrees are created as sibling directories by default: `~/projects/web` → `~/projects/web--feature--auth`
-- `tak rm` removes the worktree and deletes the branch (keeps it if there are unmerged commits, unless `--force`)
+- `tak rm` removes the worktree and deletes the branch (keeps it if there are unmerged commits, unless `-F`)
 - `tak open` uses the `tmux` config from `.tak.yml` to create pane layouts, or a plain window if unconfigured
 - Pins are stored in `.tak.yml` — recoverable config, not ephemeral state
 - State cache (`.tak/state.json`) is rebuilt automatically if deleted
