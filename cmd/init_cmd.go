@@ -86,7 +86,10 @@ func addToGitignore(path string, entry string) {
 		newContent += "\n"
 	}
 	newContent += entry + "\n"
-	os.WriteFile(path, []byte(newContent), 0644)
+	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 }
 
 func init() {

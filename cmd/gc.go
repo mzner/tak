@@ -100,7 +100,7 @@ Always skips pinned worktrees.`,
 		removed := 0
 		for _, f := range toRemove {
 			windowName := paths.TmuxSlug(f.Branch)
-			tmuxSvc.CloseWindow(windowName)
+			_ = tmuxSvc.CloseWindow(windowName)
 
 			if f.Check != doctor.CheckBroken {
 				if err := wtSvc.Remove(f.Path, true); err != nil {
@@ -109,7 +109,7 @@ Always skips pinned worktrees.`,
 				}
 			}
 
-			wtSvc.DeleteBranch(f.Branch, true)
+			_ = wtSvc.DeleteBranch(f.Branch, true)
 			state.Untrack(st, f.Branch)
 			removed++
 			fmt.Printf("Removed %s (%s)\n", f.Branch, f.Message)
@@ -125,7 +125,10 @@ Always skips pinned worktrees.`,
 			}
 		}
 
-		state.Save(statePath, st)
+		if err := state.Save(statePath, st); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 
 		// Prune git's worktree registry for paths that no longer exist
 		wtSvc.Prune()

@@ -93,7 +93,7 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			}
 
 			windowName := paths.TmuxSlug(branch)
-			tmuxSvc.CloseWindow(windowName)
+			_ = tmuxSvc.CloseWindow(windowName)
 
 			// Find what branch is actually checked out at this path (may differ from requested branch)
 			var checkedOutBranch string
@@ -131,14 +131,14 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 
 			// Also delete the checked-out branch if it differs (user switched branches inside the worktree)
 			if checkedOutBranch != "" && checkedOutBranch != branch && checkedOutBranch != defaultBranch {
-				wtSvc.DeleteBranch(checkedOutBranch, true)
+				_ = wtSvc.DeleteBranch(checkedOutBranch, true)
 			}
 
 			// Also delete the original branch tracked in state for this path
 			// (handles case where user selected the current branch from picker but original differs)
 			for _, w := range st.Worktrees {
 				if w.Path == wtPath && w.Branch != branch && w.Branch != defaultBranch {
-					wtSvc.DeleteBranch(w.Branch, true)
+					_ = wtSvc.DeleteBranch(w.Branch, true)
 					break
 				}
 			}

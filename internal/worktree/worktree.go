@@ -141,7 +141,7 @@ func (s *Service) CommitsAhead(branch string, target string) (int, error) {
 	}
 	count := strings.TrimSpace(string(output))
 	n := 0
-	fmt.Sscanf(count, "%d", &n)
+	_, _ = fmt.Sscanf(count, "%d", &n)
 	return n, nil
 }
 
@@ -153,7 +153,7 @@ func (s *Service) CommitsBehind(branch string, target string) (int, error) {
 	}
 	count := strings.TrimSpace(string(output))
 	n := 0
-	fmt.Sscanf(count, "%d", &n)
+	_, _ = fmt.Sscanf(count, "%d", &n)
 	return n, nil
 }
 

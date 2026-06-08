@@ -73,12 +73,15 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
 		state.Rename(st, oldBranch, newBranch)
-		state.Save(statePath, st)
+		if err := state.Save(statePath, st); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 
 		// Update pin if pinned
 		if cfg.IsPinned(oldBranch) {
-			cfg.RemovePin(oldBranch)
-			cfg.AddPin(newBranch)
+			_ = cfg.RemovePin(oldBranch)
+			_ = cfg.AddPin(newBranch)
 		}
 
 		// Rename tmux window if exists

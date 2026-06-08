@@ -30,11 +30,11 @@ Add to your shell config:
 	Run: func(cmd *cobra.Command, args []string) {
 		switch args[0] {
 		case "zsh":
-			rootCmd.GenZshCompletion(os.Stdout)
+			_ = rootCmd.GenZshCompletion(os.Stdout)
 		case "bash":
-			rootCmd.GenBashCompletion(os.Stdout)
+			_ = rootCmd.GenBashCompletion(os.Stdout)
 		case "fish":
-			rootCmd.GenFishCompletion(os.Stdout, true)
+			_ = rootCmd.GenFishCompletion(os.Stdout, true)
 		}
 	},
 }

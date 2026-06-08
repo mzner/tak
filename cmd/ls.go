@@ -22,7 +22,7 @@ var lsCmd = &cobra.Command{
 	Use:   "ls [repo]",
 	Short: "List all worktrees",
 	Long:  "List all git worktrees with their branch, path, and pin status. Use -s to include dirty/clean state. Pass a repo name to list a different repo's worktrees.",
-	Args: cobra.MaximumNArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		r := runner.NewExecRunner()
 
@@ -73,9 +73,9 @@ var lsCmd = &cobra.Command{
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 		if lsStatus {
-			fmt.Fprintln(w, "BRANCH\tPATH\tSTATUS")
+			_, _ = fmt.Fprintln(w, "BRANCH\tPATH\tSTATUS")
 		} else {
-			fmt.Fprintln(w, "BRANCH\tPATH")
+			_, _ = fmt.Fprintln(w, "BRANCH\tPATH")
 		}
 
 		for _, entry := range entries {
@@ -92,16 +92,16 @@ var lsCmd = &cobra.Command{
 				} else if err == nil {
 					status = append(status, "clean")
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", entry.Branch, displayPath, strings.Join(status, "  "))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", entry.Branch, displayPath, strings.Join(status, "  "))
 			} else {
 				pinLabel := ""
 				if cfg.IsPinned(entry.Branch) {
 					pinLabel = " (pinned)"
 				}
-				fmt.Fprintf(w, "%s\t%s%s\n", entry.Branch, displayPath, pinLabel)
+				_, _ = fmt.Fprintf(w, "%s\t%s%s\n", entry.Branch, displayPath, pinLabel)
 			}
 		}
-		w.Flush()
+		_ = w.Flush()
 	},
 }
 
@@ -140,7 +140,7 @@ func listRemoteRepo(r *runner.ExecRunner, repoName string) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-	fmt.Fprintln(w, "BRANCH\tPATH")
+	_, _ = fmt.Fprintln(w, "BRANCH\tPATH")
 
 	var currentPath string
 	for _, line := range strings.Split(string(output), "\n") {
@@ -149,10 +149,10 @@ func listRemoteRepo(r *runner.ExecRunner, repoName string) {
 		}
 		if strings.HasPrefix(line, "branch refs/heads/") {
 			branch := strings.TrimPrefix(line, "branch refs/heads/")
-			fmt.Fprintf(w, "%s\t%s\n", branch, shortenHome(currentPath))
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", branch, shortenHome(currentPath))
 		}
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func init() {

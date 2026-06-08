@@ -97,12 +97,12 @@ func (s *Service) OpenWindowWithLayout(name string, path string, layout string, 
 
 	// Apply layout
 	if layout != "" && len(panes) > 1 {
-		s.runner.Run("tmux", "select-layout", "-t", name, layout)
+		_, _ = s.runner.Run("tmux", "select-layout", "-t", name, layout)
 	}
 
 	// Select first pane
 	if len(panes) > 1 {
-		s.runner.Run("tmux", "select-pane", "-t", name+".0")
+		_, _ = s.runner.Run("tmux", "select-pane", "-t", name+".0")
 	}
 
 	return nil
@@ -113,14 +113,13 @@ type PaneSpec struct {
 	Command string
 }
 
-
 // RenameWindow renames a tmux window. No-op if window doesn't exist.
 func (s *Service) RenameWindow(oldName string, newName string) {
 	exists, err := s.HasWindow(oldName)
 	if err != nil || !exists {
 		return
 	}
-	s.runner.Run("tmux", "rename-window", "-t", oldName, newName)
+	_, _ = s.runner.Run("tmux", "rename-window", "-t", oldName, newName)
 }
 
 // CloseWindow kills a tmux window by name. No-op if window doesn't exist.

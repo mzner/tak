@@ -89,11 +89,17 @@ If the branch exists (locally or remotely), it is checked out.`,
 
 		// Track in state
 		takDir := filepath.Join(repoRoot, ".tak")
-		state.EnsureDir(takDir)
+		if err := state.EnsureDir(takDir); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
 		state.Track(st, branch, wtPath, startPoint)
-		state.Save(statePath, st)
+		if err := state.Save(statePath, st); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 
 		// Pin if requested
 		if addPin {
