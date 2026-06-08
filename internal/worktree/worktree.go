@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mzner/tak/internal/runner"
@@ -122,11 +123,41 @@ func (s *Service) DeleteBranch(branch string, force bool) error {
 
 // HasCommitsAhead returns true if branch has commits not in target.
 func (s *Service) HasCommitsAhead(branch string, target string) (bool, error) {
+	ahead, err := s.CommitsAhead(branch, target)
+	return ahead > 0, err
+}
+
+// CommitsAhead returns the number of commits in branch that are not in target.
+func (s *Service) CommitsAhead(branch string, target string) (int, error) {
 	output, err := s.runner.Run("git", "rev-list", "--count", target+".."+branch)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	return strings.TrimSpace(string(output)) != "0", nil
+	count := strings.TrimSpace(string(output))
+	n := 0
+	fmt.Sscanf(count, "%d", &n)
+	return n, nil
+}
+
+// CommitsBehind returns the number of commits in target that are not in branch.
+func (s *Service) CommitsBehind(branch string, target string) (int, error) {
+	output, err := s.runner.Run("git", "rev-list", "--count", branch+".."+target)
+	if err != nil {
+		return 0, err
+	}
+	count := strings.TrimSpace(string(output))
+	n := 0
+	fmt.Sscanf(count, "%d", &n)
+	return n, nil
+}
+
+// MergeBase returns the common ancestor commit of two branches.
+func (s *Service) MergeBase(branch string, target string) (string, error) {
+	output, err := s.runner.Run("git", "merge-base", branch, target)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
 
 // Prune removes stale worktree entries from git's registry.

@@ -84,6 +84,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak add <branch> [-o] [--pin]` | Create a worktree (`-o` opens in tmux, `--pin` pins it) |
 | `tak rm [branch...] [--force]` | Remove worktree(s) and branch — interactive if no arg |
 | `tak ls` | List all worktrees with status |
+| `tak info [branch]` | Show worktree details (base, ahead/behind, age) |
 | `tak cd [branch]` | Change to a worktree directory — interactive if no arg |
 | `tak open [branch]` | Open/switch to tmux window — interactive if no arg |
 | `tak pin [branch]` | Pin a worktree (no arg = current) |
