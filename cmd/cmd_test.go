@@ -64,6 +64,9 @@ func newRepo(t *testing.T) (repoDir, wtBase string) {
 
 	git(t, repoDir, "init")
 	git(t, repoDir, "commit", "--allow-empty", "-m", "initial")
+	// Normalize the default branch name so tests don't depend on the host's
+	// init.defaultBranch (CI may default to "master" instead of "main").
+	git(t, repoDir, "branch", "-M", "main")
 
 	// Contain worktrees in wtBase instead of creating sibling dirs.
 	cfg := "worktree_base: " + wtBase + "\npins: []\n"

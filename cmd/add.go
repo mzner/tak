@@ -57,7 +57,7 @@ If the branch exists (locally or remotely), it is checked out.`,
 		entries, _ := wtSvc.List()
 		for _, e := range entries {
 			if e.Branch == branch {
-				return fmt.Errorf("'%s' already has a worktree at %s\n\n  Use `tak cd %s` or `tak open %s` to switch to it.", branch, e.Path, branch, branch)
+				return fmt.Errorf("'%s' already has a worktree at %s\n\n  Use `tak cd %s` or `tak open %s` to switch to it", branch, e.Path, branch, branch)
 			}
 		}
 
