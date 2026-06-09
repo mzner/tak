@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var verbose bool
-
 var rootCmd = &cobra.Command{
 	Use:   "tak",
 	Short: "Git worktree manager",
@@ -29,6 +27,4 @@ func init() {
 	// Detect color from stderr so interactive pickers render correctly
 	// even when stdout is captured by the shell hook (tak cd).
 	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(os.Stderr))
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 }
