@@ -94,7 +94,7 @@ Without this, `tak cd` prints the path but can't change your shell's working dir
 | `tak config` | Show config file paths and contents |
 | `tak init` | Initialize tak in a repo |
 | `tak repo add [path...]` | Register repo(s) for cross-repo access |
-| `tak repo rm <name>` | Unregister a repo |
+| `tak repo rm [name...]` | Unregister repo(s) — interactive if no arg |
 | `tak repo ls` | List registered repos |
 | `tak completion <shell>` | Generate shell completion script |
 | `tak shell-init <shell>` | Print shell hook for zsh/bash/fish |
