@@ -42,6 +42,12 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 			os.Exit(1)
 		}
 
+		// Prevent renaming the default branch
+		if oldBranch == wtSvc.DefaultBranch() {
+			fmt.Fprintln(os.Stderr, "error: cannot rename the default branch")
+			os.Exit(1)
+		}
+
 		// Verify old branch has a worktree
 		entries, _ := wtSvc.List()
 		found := false
