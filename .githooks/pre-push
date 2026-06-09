@@ -1,0 +1,12 @@
+#!/bin/sh
+# Run the full CI pipeline before allowing a push. Mirrors .github/workflows/ci.yml
+# so failures surface locally instead of on GitHub. Enable with `make setup`.
+#
+# Bypass in an emergency with: git push --no-verify
+
+echo "Running 'make ci' before push..."
+if ! make ci; then
+	echo
+	echo "✗ make ci failed — push aborted. Fix the issues above, or use 'git push --no-verify' to bypass." >&2
+	exit 1
+fi

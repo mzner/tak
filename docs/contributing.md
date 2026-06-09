@@ -7,6 +7,7 @@ git clone https://github.com/mzner/tak.git
 cd tak
 go mod download
 make build
+make setup   # enable the pre-push hook (runs `make ci` before every push)
 ```
 
 ### Requirements
@@ -23,7 +24,12 @@ make test              # unit tests (fast, no git/tmux needed)
 make test-integration  # integration tests (needs git)
 make lint              # linter
 make test-all          # everything
+make ci                # the exact GitHub Actions pipeline (build + test + integration + lint)
 ```
+
+`make ci` mirrors `.github/workflows/ci.yml` step for step, so a green
+`make ci` means a green CI run. The pre-push hook runs it automatically;
+bypass in an emergency with `git push --no-verify`.
 
 ## Project Structure
 
