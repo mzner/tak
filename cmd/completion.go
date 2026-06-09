@@ -68,7 +68,7 @@ func completeWorktreeBranches(cmd *cobra.Command, args []string, toComplete stri
 	repos, err := config.LoadGlobal()
 	if err == nil {
 		var completions []string
-		for name := range repos {
+		for _, name := range sortedRepoNames(repos) {
 			completions = append(completions, name+":")
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
@@ -77,7 +77,9 @@ func completeWorktreeBranches(cmd *cobra.Command, args []string, toComplete stri
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
-func completeRemoteRepoBranches(repoName string, prefix string) ([]string, cobra.ShellCompDirective) {
+// completeRemoteRepoBranches lists branches for a registered repo as repo:branch
+// completions. Cobra filters the returned list by what the user has typed.
+func completeRemoteRepoBranches(repoName string, _ string) ([]string, cobra.ShellCompDirective) {
 	repos, err := config.LoadGlobal()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -88,7 +90,6 @@ func completeRemoteRepoBranches(repoName string, prefix string) ([]string, cobra
 	}
 
 	r := runner.NewExecRunner()
-	wtSvc := worktree.NewService(r)
 
 	// Run git worktree list in the target repo
 	output, err := r.RunInDir(repoPath, "git", "worktree", "list", "--porcelain")
@@ -96,11 +97,9 @@ func completeRemoteRepoBranches(repoName string, prefix string) ([]string, cobra
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	_ = wtSvc // unused but keeps import clean
 	var completions []string
-	for _, line := range strings.Split(string(output), "\n") {
-		if strings.HasPrefix(line, "branch refs/heads/") {
-			branch := strings.TrimPrefix(line, "branch refs/heads/")
+	for line := range strings.SplitSeq(string(output), "\n") {
+		if branch, ok := strings.CutPrefix(line, "branch refs/heads/"); ok {
 			completions = append(completions, repoName+":"+branch)
 		}
 	}

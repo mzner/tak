@@ -4,12 +4,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/charmbracelet/huh"
 	"github.com/mzner/tak/internal/config"
 	"github.com/mzner/tak/internal/runner"
 	"github.com/spf13/cobra"
 )
+
+// sortedRepoNames returns the repo names from a config map in alphabetical order.
+func sortedRepoNames(repos map[string]string) []string {
+	names := make([]string, 0, len(repos))
+	for name := range repos {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
 
 var repoCmd = &cobra.Command{
 	Use:   "repo",
@@ -77,9 +88,9 @@ With paths, registers each one. The repo name is the directory name.`,
 }
 
 var repoRmCmd = &cobra.Command{
-	Use:   "rm [name...]",
-	Short: "Unregister repo(s)",
-	Long:  "Unregister one or more repos. Without arguments, shows an interactive picker.",
+	Use:               "rm [name...]",
+	Short:             "Unregister repo(s)",
+	Long:              "Unregister one or more repos. Without arguments, shows an interactive picker.",
 	ValidArgsFunction: completeRepoNames,
 	Run: func(cmd *cobra.Command, args []string) {
 		var names []string
@@ -93,7 +104,7 @@ var repoRmCmd = &cobra.Command{
 			}
 
 			var options []huh.Option[string]
-			for name := range repos {
+			for _, name := range sortedRepoNames(repos) {
 				options = append(options, huh.NewOption(name, name))
 			}
 
@@ -132,11 +143,7 @@ func completeRepoNames(cmd *cobra.Command, args []string, toComplete string) ([]
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	var names []string
-	for name := range repos {
-		names = append(names, name)
-	}
-	return names, cobra.ShellCompDirectiveNoFileComp
+	return sortedRepoNames(repos), cobra.ShellCompDirectiveNoFileComp
 }
 
 var repoLsCmd = &cobra.Command{
@@ -152,8 +159,8 @@ var repoLsCmd = &cobra.Command{
 			fmt.Println("No repos registered. Run `tak repo add` inside a git repo.")
 			return
 		}
-		for name, path := range repos {
-			fmt.Printf("%s → %s\n", name, path)
+		for _, name := range sortedRepoNames(repos) {
+			fmt.Printf("%s → %s\n", name, repos[name])
 		}
 	},
 }
