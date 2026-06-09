@@ -21,20 +21,18 @@ var infoCmd = &cobra.Command{
 Shows base branch, commits ahead/behind, age, pin status, and dirty files.
 Without an argument, shows info for the current worktree.`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		var branch string
@@ -43,8 +41,7 @@ Without an argument, shows info for the current worktree.`,
 		} else {
 			branch, err = wtSvc.CurrentBranch()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error: specify a branch or run from within a worktree")
-				os.Exit(1)
+				return fmt.Errorf("specify a branch or run from within a worktree")
 			}
 		}
 
@@ -62,8 +59,7 @@ Without an argument, shows info for the current worktree.`,
 			}
 		}
 		if wtPath == "" {
-			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s'\n", branch)
-			os.Exit(1)
+			return fmt.Errorf("no worktree for branch '%s'", branch)
 		}
 
 		// Determine comparison branch (from state, or default)
@@ -102,6 +98,7 @@ Without an argument, shows info for the current worktree.`,
 		} else {
 			fmt.Printf("Dirty:    no\n")
 		}
+		return nil
 	},
 }
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,11 +28,10 @@ Examples:
   tak exec feature/auth -- make build`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: completeWorktreeBranches,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dashIdx := cmd.ArgsLenAtDash()
 		if dashIdx < 1 || dashIdx >= len(args) {
-			fmt.Fprintln(os.Stderr, "usage: tak exec <branch> -- <command>")
-			os.Exit(1)
+			return fmt.Errorf("usage: tak exec <branch> -- <command>")
 		}
 		branch := args[0]
 		cmdArgs := args[dashIdx:]
@@ -41,14 +41,12 @@ Examples:
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Find worktree path
@@ -74,8 +72,7 @@ Examples:
 		}
 
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s'\n", branch)
-			os.Exit(1)
+			return fmt.Errorf("no worktree for branch '%s'", branch)
 		}
 
 		// Run the command in the worktree
@@ -86,12 +83,14 @@ Examples:
 		c.Stdin = os.Stdin
 
 		if err := c.Run(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				os.Exit(exitErr.ExitCode())
+			// Forward the child's exit code without printing an "error:" line —
+			// its own output already went to the terminal.
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+				return &exitError{code: exitErr.ExitCode()}
 			}
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
+		return nil
 	},
 }
 

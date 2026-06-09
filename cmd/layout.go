@@ -61,34 +61,31 @@ var layoutCmd = &cobra.Command{
 
 Choose from preset layouts or build a custom one. The configuration
 is saved to .tak.yml and applies to all worktrees in this repo.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		tmuxCfg, err := runLayoutWizard()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		if err := cfg.SetTmux(tmuxCfg); err != nil {
-			fmt.Fprintln(os.Stderr, "error saving config:", err)
-			os.Exit(1)
+			return fmt.Errorf("saving config: %w", err)
 		}
 
 		fmt.Printf("Layout saved to .tak.yml (%d panes, %s)\n", len(tmuxCfg.Panes), tmuxCfg.Layout)
+		return nil
 	},
 }
 

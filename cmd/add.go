@@ -29,7 +29,7 @@ var addCmd = &cobra.Command{
 If the branch doesn't exist, it is created from the default branch (or --from).
 If the branch exists (locally or remotely), it is checked out.`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		branch := args[0]
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
@@ -37,14 +37,12 @@ If the branch exists (locally or remotely), it is checked out.`,
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: loading config:", err)
-			os.Exit(1)
+			return fmt.Errorf("loading config: %w", err)
 		}
 
 		// Apply branch prefix if configured
@@ -59,9 +57,7 @@ If the branch exists (locally or remotely), it is checked out.`,
 		entries, _ := wtSvc.List()
 		for _, e := range entries {
 			if e.Branch == branch {
-				fmt.Fprintf(os.Stderr, "error: '%s' already has a worktree at %s\n\n", branch, e.Path)
-				fmt.Fprintf(os.Stderr, "  Use `tak cd %s` or `tak open %s` to switch to it.\n", branch, branch)
-				os.Exit(1)
+				return fmt.Errorf("'%s' already has a worktree at %s\n\n  Use `tak cd %s` or `tak open %s` to switch to it.", branch, e.Path, branch, branch)
 			}
 		}
 
@@ -69,9 +65,7 @@ If the branch exists (locally or remotely), it is checked out.`,
 		newBranch := !wtSvc.BranchExists(branch)
 
 		if !newBranch && addFrom != "" {
-			fmt.Fprintf(os.Stderr, "error: branch '%s' already exists, --from is ignored for existing branches\n", branch)
-			fmt.Fprintf(os.Stderr, "  To recreate from %s: tak rm %s && tak add %s -f %s\n", addFrom, branch, branch, addFrom)
-			os.Exit(1)
+			return fmt.Errorf("branch '%s' already exists, --from is ignored for existing branches\n  To recreate from %s: tak rm %s && tak add %s -f %s", branch, addFrom, branch, branch, addFrom)
 		}
 
 		// Resolve start point for new branches
@@ -79,32 +73,26 @@ If the branch exists (locally or remotely), it is checked out.`,
 		if newBranch && startPoint == "" {
 			startPoint = wtSvc.DefaultBranch()
 			if !wtSvc.BranchExists(startPoint) {
-				fmt.Fprintf(os.Stderr, "error: repository has no commits yet\n\n")
-				fmt.Fprintf(os.Stderr, "  Create an initial commit first:\n")
-				fmt.Fprintf(os.Stderr, "    git commit --allow-empty -m \"initial\"\n")
-				os.Exit(1)
+				return fmt.Errorf("repository has no commits yet\n\n  Create an initial commit first:\n    git commit --allow-empty -m \"initial\"")
 			}
 		}
 
 		// Create worktree
 		fmt.Fprintf(os.Stderr, "Creating worktree %s...\n", branch)
 		if err := wtSvc.Add(wtPath, branch, newBranch, startPoint); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Track in state
 		takDir := filepath.Join(repoRoot, ".tak")
 		if err := state.EnsureDir(takDir); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
 		state.Track(st, branch, wtPath, startPoint)
 		if err := state.Save(statePath, st); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Pin if requested
@@ -144,17 +132,18 @@ If the branch exists (locally or remotely), it is checked out.`,
 		if addOpen {
 			if !tmuxSvc.IsInstalled() {
 				fmt.Fprintln(os.Stderr, "warning: tmux is not installed, skipping -o")
-				return
+				return nil
 			}
 			if !tmuxSvc.IsInsideTmux() {
 				fmt.Fprintln(os.Stderr, "warning: not in a tmux session, skipping -o")
-				return
+				return nil
 			}
 			windowName := paths.TmuxSlug(branch)
 			if err := openTmuxWindow(tmuxSvc, cfg, windowName, wtPath); err != nil {
 				fmt.Fprintln(os.Stderr, "warning: could not open tmux window:", err)
 			}
 		}
+		return nil
 	},
 }
 

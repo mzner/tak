@@ -41,13 +41,12 @@ var repoAddCmd = &cobra.Command{
 
 Without arguments, registers the current directory.
 With paths, registers each one. The repo name is the directory name.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var paths []string
 		if len(args) == 0 {
 			cwd, err := os.Getwd()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 			paths = append(paths, cwd)
 		} else {
@@ -84,6 +83,7 @@ With paths, registers each one. The repo name is the directory name.`,
 			}
 			fmt.Printf("Registered %s → %s\n", name, absPath)
 		}
+		return nil
 	},
 }
 
@@ -92,15 +92,14 @@ var repoRmCmd = &cobra.Command{
 	Short:             "Unregister repo(s)",
 	Long:              "Unregister one or more repos. Without arguments, shows an interactive picker.",
 	ValidArgsFunction: completeRepoNames,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var names []string
 		if len(args) > 0 {
 			names = args
 		} else {
 			repos, err := config.LoadGlobal()
 			if err != nil || len(repos) == 0 {
-				fmt.Fprintln(os.Stderr, "No repos registered.")
-				os.Exit(1)
+				return fmt.Errorf("no repos registered")
 			}
 
 			var options []huh.Option[string]
@@ -118,12 +117,10 @@ var repoRmCmd = &cobra.Command{
 				WithOutput(os.Stderr).
 				Run()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "No repos selected.")
-				os.Exit(1)
+				return fmt.Errorf("no repos selected")
 			}
 			names = selected
 		}
@@ -135,6 +132,7 @@ var repoRmCmd = &cobra.Command{
 			}
 			fmt.Printf("Unregistered %s\n", name)
 		}
+		return nil
 	},
 }
 
@@ -149,19 +147,19 @@ func completeRepoNames(cmd *cobra.Command, args []string, toComplete string) ([]
 var repoLsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List registered repos",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		repos, err := config.LoadGlobal()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 		if len(repos) == 0 {
 			fmt.Println("No repos registered. Run `tak repo add` inside a git repo.")
-			return
+			return nil
 		}
 		for _, name := range sortedRepoNames(repos) {
 			fmt.Printf("%s → %s\n", name, repos[name])
 		}
+		return nil
 	},
 }
 

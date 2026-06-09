@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/mzner/tak/internal/config"
@@ -22,7 +21,7 @@ var renameCmd = &cobra.Command{
 Updates the git branch name, tak state, tmux window name, and pins.`,
 	Args:              cobra.ExactArgs(2),
 	ValidArgsFunction: completeWorktreeBranches,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		oldBranch := args[0]
 		newBranch := args[1]
 
@@ -32,20 +31,17 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Prevent renaming the default branch
 		if oldBranch == wtSvc.DefaultBranch() {
-			fmt.Fprintln(os.Stderr, "error: cannot rename the default branch")
-			os.Exit(1)
+			return fmt.Errorf("cannot rename the default branch")
 		}
 
 		// Verify old branch has a worktree
@@ -58,20 +54,17 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 			}
 		}
 		if !found {
-			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s'\n", oldBranch)
-			os.Exit(1)
+			return fmt.Errorf("no worktree for branch '%s'", oldBranch)
 		}
 
 		// Check new branch name doesn't already exist
 		if wtSvc.BranchExists(newBranch) {
-			fmt.Fprintf(os.Stderr, "error: branch '%s' already exists\n", newBranch)
-			os.Exit(1)
+			return fmt.Errorf("branch '%s' already exists", newBranch)
 		}
 
 		// Rename git branch
 		if err := wtSvc.RenameBranch(oldBranch, newBranch); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Update state
@@ -80,8 +73,7 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 		st, _ := state.Load(statePath)
 		state.Rename(st, oldBranch, newBranch)
 		if err := state.Save(statePath, st); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Update pin if pinned
@@ -96,6 +88,7 @@ Updates the git branch name, tak state, tmux window name, and pins.`,
 		tmuxSvc.RenameWindow(oldWindow, newWindow)
 
 		fmt.Printf("Renamed %s → %s\n", oldBranch, newBranch)
+		return nil
 	},
 }
 

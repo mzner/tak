@@ -25,35 +25,35 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize tak in the current repository",
 	Long:  "Creates .tak.yml config and .tak/ state directory. Adds .tak/ to .gitignore.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		configPath := filepath.Join(repoRoot, ".tak.yml")
 		if _, err := os.Stat(configPath); err == nil {
-			fmt.Fprintln(os.Stderr, "error: .tak.yml already exists")
-			os.Exit(1)
+			return fmt.Errorf(".tak.yml already exists")
 		}
 		if err := os.WriteFile(configPath, []byte(defaultTakYml), 0644); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		takDir := filepath.Join(repoRoot, ".tak")
 		if err := state.EnsureDir(takDir); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		gitignorePath := filepath.Join(repoRoot, ".gitignore")
-		addToGitignore(gitignorePath, ".tak/")
-		addToGitignore(gitignorePath, ".tak.yml")
+		if err := addToGitignore(gitignorePath, ".tak/"); err != nil {
+			return err
+		}
+		if err := addToGitignore(gitignorePath, ".tak.yml"); err != nil {
+			return err
+		}
 
 		fmt.Println("Initialized tak in", repoRoot)
 		fmt.Println()
@@ -65,19 +65,19 @@ var initCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Println("  Without this, `tak cd` prints the path but cannot change your directory.")
 		fmt.Println("  After adding, restart your terminal or run: source ~/.zshrc")
+		return nil
 	},
 }
 
-func addToGitignore(path string, entry string) {
+func addToGitignore(path string, entry string) error {
 	content, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
-		return
+		return err
 	}
 
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(content), "\n") {
 		if strings.TrimSpace(line) == entry {
-			return
+			return nil
 		}
 	}
 
@@ -86,10 +86,7 @@ func addToGitignore(path string, entry string) {
 		newContent += "\n"
 	}
 	newContent += entry + "\n"
-	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
+	return os.WriteFile(path, []byte(newContent), 0644)
 }
 
 func init() {

@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
 	"github.com/mzner/tak/internal/config"
 	"github.com/mzner/tak/internal/doctor"
@@ -10,6 +10,8 @@ import (
 	"github.com/mzner/tak/internal/worktree"
 	"github.com/spf13/cobra"
 )
+
+var errNotInRepo = errors.New("not in a git repository")
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
@@ -21,26 +23,23 @@ Checks performed:
   - Branch merged into main: suggests removal
 
 Doctor only reports — it never removes anything.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		entries, err := wtSvc.List()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		fmt.Printf("Checking %d worktrees...\n\n", len(entries))
@@ -50,7 +49,7 @@ Doctor only reports — it never removes anything.`,
 
 		if len(findings) == 0 {
 			fmt.Println("All worktrees healthy.")
-			return
+			return nil
 		}
 
 		for _, f := range findings {
@@ -75,6 +74,7 @@ Doctor only reports — it never removes anything.`,
 			fmt.Print(" Run `tak gc --merged` to clean up merged branches.")
 		}
 		fmt.Println()
+		return nil
 	},
 }
 

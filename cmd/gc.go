@@ -28,27 +28,24 @@ var gcCmd = &cobra.Command{
 By default, removes only broken worktrees (path missing).
 With --merged, also removes worktrees whose branch is merged.
 Always skips pinned worktrees.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 		tmuxSvc := tmux.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		entries, err := wtSvc.List()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		d := doctor.New(wtSvc)
@@ -74,7 +71,7 @@ Always skips pinned worktrees.`,
 
 		if len(toRemove) == 0 {
 			fmt.Println("Nothing to clean up.")
-			return
+			return nil
 		}
 
 		if gcDryRun {
@@ -89,7 +86,7 @@ Always skips pinned worktrees.`,
 				}
 			}
 			fmt.Println("\nRun without --dry-run to remove.")
-			return
+			return nil
 		}
 
 		// Perform removals
@@ -126,8 +123,7 @@ Always skips pinned worktrees.`,
 		}
 
 		if err := state.Save(statePath, st); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		// Prune git's worktree registry for paths that no longer exist
@@ -137,6 +133,7 @@ Always skips pinned worktrees.`,
 			fmt.Printf("\nSkipped %d pinned worktree(s).\n", len(skipped))
 		}
 		fmt.Printf("\nCleaned up %d worktree(s).\n", removed)
+		return nil
 	},
 }
 

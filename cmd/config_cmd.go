@@ -17,11 +17,10 @@ var configCmd = &cobra.Command{
 
 Shows global and local config file locations and their contents.
 Useful for debugging which settings are in effect.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		globalPath := filepath.Join(home, ".config", "tak", "config.yml")
@@ -33,12 +32,13 @@ Useful for debugging which settings are in effect.`,
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
 			fmt.Println("\nLocal:  (not in a git repository)")
-			return
+			return nil
 		}
 
 		localPath := filepath.Join(repoRoot, ".tak.yml")
 		fmt.Printf("\nLocal:  %s\n", localPath)
 		printFileContents(localPath)
+		return nil
 	},
 }
 

@@ -24,30 +24,26 @@ If a window already exists, switches to it.
 If not, creates a new window cd'd into the worktree.
 The worktree must already exist (use tak add -o to create and open).`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 		tmuxSvc := tmux.NewService(r)
 
 		if !tmuxSvc.IsInstalled() {
-			fmt.Fprintln(os.Stderr, "error: tmux is not installed\n\n  "+tmuxInstallHint())
-			os.Exit(1)
+			return fmt.Errorf("tmux is not installed\n\n  %s", tmuxInstallHint())
 		}
 		if !tmuxSvc.IsInsideTmux() {
-			fmt.Fprintln(os.Stderr, "error: not in a tmux session, start one with `tmux` first")
-			os.Exit(1)
+			return fmt.Errorf("not in a tmux session, start one with `tmux` first")
 		}
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		var branch string
@@ -56,8 +52,7 @@ The worktree must already exist (use tak add -o to create and open).`,
 		} else {
 			branch, err = selectWorktree(wtSvc, "Select worktree to open:")
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 		}
 
@@ -85,15 +80,14 @@ The worktree must already exist (use tak add -o to create and open).`,
 
 		// Verify worktree exists
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s', create one with `tak add %s -o`\n", branch, branch)
-			os.Exit(1)
+			return fmt.Errorf("no worktree for branch '%s', create one with `tak add %s -o`", branch, branch)
 		}
 
 		windowName := paths.TmuxSlug(branch)
 		if err := openTmuxWindow(tmuxSvc, cfg, windowName, wtPath); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
+		return nil
 	},
 }
 

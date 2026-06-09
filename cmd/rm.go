@@ -26,21 +26,19 @@ If no branch is specified, shows an interactive picker.
 Refuses to remove pinned worktrees (use tak unpin first).
 Refuses to remove dirty worktrees (use -F/--force to override).`,
 	Args: cobra.ArbitraryArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 		tmuxSvc := tmux.NewService(r)
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: loading config:", err)
-			os.Exit(1)
+			return fmt.Errorf("loading config: %w", err)
 		}
 
 		var branches []string
@@ -49,8 +47,7 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 		} else {
 			branches, err = selectWorktrees(wtSvc, "Select worktree(s) to remove:")
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 		}
 
@@ -155,9 +152,9 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 		}
 
 		if err := state.Save(statePath, st); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
+		return nil
 	},
 }
 

@@ -24,7 +24,7 @@ With the shell hook installed (eval "$(tak shell-init zsh)"),
 this command changes your working directory directly.
 Without the hook, use: cd $(tak cd <branch>)`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		r := runner.NewExecRunner()
 		wtSvc := worktree.NewService(r)
 
@@ -37,30 +37,26 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		if branch != "" && strings.Contains(branch, ":") {
 			path, err := resolveRemoteWorktree(r, branch)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 			fmt.Println(path)
-			return
+			return nil
 		}
 
 		repoRoot, err := wtSvc.RepoRoot()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error: not in a git repository")
-			os.Exit(1)
+			return errNotInRepo
 		}
 
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			return err
 		}
 
 		if branch == "" {
 			branch, err = selectWorktree(wtSvc, "Select worktree:")
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-				os.Exit(1)
+				return err
 			}
 		}
 
@@ -72,7 +68,7 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		entry, found := state.FindByBranch(st, branch)
 		if found {
 			fmt.Println(entry.Path)
-			return
+			return nil
 		}
 
 		// Check git worktree list (covers main and untracked worktrees)
@@ -80,7 +76,7 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		for _, e := range entries {
 			if e.Branch == branch {
 				fmt.Println(e.Path)
-				return
+				return nil
 			}
 		}
 
@@ -88,16 +84,15 @@ Without the hook, use: cd $(tak cd <branch>)`,
 		wtPath := paths.Resolve(branch, repoRoot, cfg.WorktreeBase)
 		if _, err := os.Stat(wtPath); err == nil {
 			fmt.Println(wtPath)
-			return
+			return nil
 		}
 
-		// Not found
-		fmt.Fprintf(os.Stderr, "error: no worktree for branch '%s'\n\n", branch)
-		fmt.Fprintln(os.Stderr, "Available worktrees:")
+		// Not found — list what is available to help the user
+		var available strings.Builder
 		for _, e := range entries {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Branch)
+			fmt.Fprintf(&available, "\n  %s", e.Branch)
 		}
-		os.Exit(1)
+		return fmt.Errorf("no worktree for branch '%s'\n\nAvailable worktrees:%s", branch, available.String())
 	},
 }
 
