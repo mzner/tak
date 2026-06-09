@@ -1,5 +1,10 @@
 .PHONY: build install dev test test-integration lint test-all ci setup clean help
 
+# Resolve golangci-lint via PATH, falling back to GOPATH/bin. Git hooks run
+# with a minimal environment that often lacks GOPATH/bin on PATH, so the bare
+# command name isn't enough.
+GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+
 build:
 	go build -o bin/tak .
 
@@ -16,17 +21,19 @@ test-integration:
 	go test -tags=integration ./...
 
 lint:
-	golangci-lint run ./...
+	@test -x "$(GOLANGCI_LINT)" || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"; exit 1; }
+	"$(GOLANGCI_LINT)" run ./...
 
 test-all: lint test
 
 # Mirror the GitHub Actions pipeline exactly so a green `make ci` means a
 # green CI run. The pre-push hook (see `make setup`) runs this before pushing.
 ci:
+	@test -x "$(GOLANGCI_LINT)" || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"; exit 1; }
 	go build ./...
 	go test ./...
 	go test -tags=integration -count=1 ./...
-	golangci-lint run ./...
+	"$(GOLANGCI_LINT)" run ./...
 
 # Point git at the version-controlled .githooks/ directory so the pre-push
 # hook is active. Run once after cloning.
