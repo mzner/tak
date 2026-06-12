@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/mzner/tak/internal/runner"
@@ -117,17 +118,75 @@ func TestIsDirty_Dirty(t *testing.T) {
 	assert.True(t, dirty)
 }
 
-func TestIsMerged(t *testing.T) {
+func TestIsMerged_AncestryLocal(t *testing.T) {
+	// Branch tip is reachable from local target.
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("  feature/auth\n  fix/old-bug\n* main\n")},
+		"git merge-base --is-ancestor feature/auth main": {Output: []byte("")},
 	})
 	svc := NewService(fake)
 
 	merged, err := svc.IsMerged("feature/auth", "main")
 	require.NoError(t, err)
 	assert.True(t, merged)
+}
 
-	merged, err = svc.IsMerged("feature/new", "main")
+func TestIsMerged_AncestryRemote(t *testing.T) {
+	// Not in local main but reachable from origin/main (regular remote merge).
+	fake := runner.NewFakeRunner(map[string]runner.Response{
+		"git merge-base --is-ancestor feature/auth main":        {Err: fmt.Errorf("exit status 1")},
+		"git merge-base --is-ancestor feature/auth origin/main": {Output: []byte("")},
+	})
+	svc := NewService(fake)
+
+	merged, err := svc.IsMerged("feature/auth", "main")
+	require.NoError(t, err)
+	assert.True(t, merged)
+}
+
+func TestIsMerged_SquashMerge(t *testing.T) {
+	// Squash-merge: ancestry check fails, but tracking ref is gone.
+	fake := runner.NewFakeRunner(map[string]runner.Response{
+		"git merge-base --is-ancestor fix/thing main":        {Err: fmt.Errorf("exit status 1")},
+		"git merge-base --is-ancestor fix/thing origin/main": {Err: fmt.Errorf("exit status 1")},
+		"git for-each-ref --format=%(upstream:short) %(upstream:track) refs/heads/fix/thing": {
+			Output: []byte("origin/fix/thing [gone]\n"),
+		},
+	})
+	svc := NewService(fake)
+
+	merged, err := svc.IsMerged("fix/thing", "main")
+	require.NoError(t, err)
+	assert.True(t, merged)
+}
+
+func TestIsMerged_ActiveBranch(t *testing.T) {
+	// Branch is still open — ancestry fails and tracking ref is alive.
+	fake := runner.NewFakeRunner(map[string]runner.Response{
+		"git merge-base --is-ancestor feature/wip main":        {Err: fmt.Errorf("exit status 1")},
+		"git merge-base --is-ancestor feature/wip origin/main": {Err: fmt.Errorf("exit status 1")},
+		"git for-each-ref --format=%(upstream:short) %(upstream:track) refs/heads/feature/wip": {
+			Output: []byte("origin/feature/wip\n"),
+		},
+	})
+	svc := NewService(fake)
+
+	merged, err := svc.IsMerged("feature/wip", "main")
+	require.NoError(t, err)
+	assert.False(t, merged)
+}
+
+func TestIsMerged_LocalOnlyBranch(t *testing.T) {
+	// No upstream configured — purely local branch, not flagged as merged.
+	fake := runner.NewFakeRunner(map[string]runner.Response{
+		"git merge-base --is-ancestor local/exp main":        {Err: fmt.Errorf("exit status 1")},
+		"git merge-base --is-ancestor local/exp origin/main": {Err: fmt.Errorf("exit status 1")},
+		"git for-each-ref --format=%(upstream:short) %(upstream:track) refs/heads/local/exp": {
+			Output: []byte("\n"),
+		},
+	})
+	svc := NewService(fake)
+
+	merged, err := svc.IsMerged("local/exp", "main")
 	require.NoError(t, err)
 	assert.False(t, merged)
 }

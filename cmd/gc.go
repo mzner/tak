@@ -48,6 +48,10 @@ Always skips pinned worktrees.`,
 			return err
 		}
 
+		if gcMerged {
+			fmt.Fprintln(os.Stderr, "Note: run `git fetch --prune` first to detect squash-merged branches.")
+		}
+
 		d := doctor.New(wtSvc)
 		findings := d.Check(entries, cfg.Pins, wtSvc.DefaultBranch())
 

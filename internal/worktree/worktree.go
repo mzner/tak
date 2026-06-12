@@ -70,22 +70,43 @@ func (s *Service) IsDirty(path string) (bool, error) {
 }
 
 // IsMerged checks if a branch has been merged into the target branch.
+// It uses two strategies:
+//  1. Ancestry: the branch tip is reachable from origin/<target> (handles
+//     regular merges where commit hashes match).
+//  2. Gone tracking ref: the branch had a remote tracking ref that has since
+//     been deleted (handles squash-merges and PR merges where hashes differ).
 func (s *Service) IsMerged(branch string, target string) (bool, error) {
-	output, err := s.runner.Run("git", "branch", "--merged", target)
+	// Strategy 1: ancestry check against local and remote target.
+	if ok, _ := s.isAncestorOf(branch, target); ok {
+		return true, nil
+	}
+	if ok, _ := s.isAncestorOf(branch, "origin/"+target); ok {
+		return true, nil
+	}
+	// Strategy 2: tracking ref gone (squash-merge / PR-delete pattern).
+	return s.trackingRefGone(branch)
+}
+
+// isAncestorOf returns true if commit is a strict ancestor of base.
+func (s *Service) isAncestorOf(commit, base string) (bool, error) {
+	_, err := s.runner.Run("git", "merge-base", "--is-ancestor", commit, base)
 	if err != nil {
 		return false, err
 	}
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		name := strings.TrimSpace(line)
-		name = strings.TrimPrefix(name, "* ")
-		name = strings.TrimPrefix(name, "+ ")
-		name = strings.TrimSpace(name)
-		if name == branch {
-			return true, nil
-		}
+	return true, nil
+}
+
+// trackingRefGone returns true when the branch has a configured remote
+// tracking ref that no longer exists (i.e. was deleted on the remote).
+// A purely local branch with no upstream configured returns false, nil.
+func (s *Service) trackingRefGone(branch string) (bool, error) {
+	output, err := s.runner.Run("git", "for-each-ref",
+		"--format=%(upstream:short) %(upstream:track)",
+		"refs/heads/"+branch)
+	if err != nil {
+		return false, err
 	}
-	return false, nil
+	return strings.Contains(string(output), "[gone]"), nil
 }
 
 // RepoRoot returns the root directory of the main working tree.

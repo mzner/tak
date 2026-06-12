@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/mzner/tak/internal/runner"
@@ -12,8 +13,8 @@ import (
 func TestCheck_MergedBranch(t *testing.T) {
 	tmpDir := t.TempDir()
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("  feature/old\n* main\n")},
-		"git -C " + tmpDir + " status": {Output: []byte("")},
+		"git merge-base --is-ancestor feature/old main":         {Output: []byte("")},
+		"git -C " + tmpDir + " status":                          {Output: []byte("")},
 	})
 	wtSvc := worktree.NewService(fake)
 	d := New(wtSvc)
@@ -31,7 +32,7 @@ func TestCheck_MergedBranch(t *testing.T) {
 
 func TestCheck_BrokenWorktree(t *testing.T) {
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("* main\n")},
+		"git merge-base --is-ancestor feature/gone main": {Err: fmt.Errorf("exit status 1")},
 	})
 	wtSvc := worktree.NewService(fake)
 	d := New(wtSvc)
@@ -47,9 +48,7 @@ func TestCheck_BrokenWorktree(t *testing.T) {
 }
 
 func TestCheck_SkipsMainWorktree(t *testing.T) {
-	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("* main\n")},
-	})
+	fake := runner.NewFakeRunner(nil)
 	wtSvc := worktree.NewService(fake)
 	d := New(wtSvc)
 
@@ -64,8 +63,8 @@ func TestCheck_SkipsMainWorktree(t *testing.T) {
 func TestCheck_SkipsPinnedBranches(t *testing.T) {
 	tmpDir := t.TempDir()
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("  feature/auth\n* main\n")},
-		"git -C " + tmpDir + " status": {Output: []byte("")},
+		"git merge-base --is-ancestor feature/auth main":         {Output: []byte("")},
+		"git -C " + tmpDir + " status":                           {Output: []byte("")},
 	})
 	wtSvc := worktree.NewService(fake)
 	d := New(wtSvc)
@@ -83,8 +82,9 @@ func TestCheck_SkipsPinnedBranches(t *testing.T) {
 func TestCheck_AllClean(t *testing.T) {
 	tmpDir := t.TempDir()
 	fake := runner.NewFakeRunner(map[string]runner.Response{
-		"git branch --merged": {Output: []byte("* main\n")},
-		"git -C " + tmpDir + " status": {Output: []byte("")},
+		"git merge-base --is-ancestor feature/active main":          {Err: fmt.Errorf("exit status 1")},
+		"git merge-base --is-ancestor feature/active origin/main":   {Err: fmt.Errorf("exit status 1")},
+		"git -C " + tmpDir + " status":                              {Output: []byte("")},
 	})
 	wtSvc := worktree.NewService(fake)
 	d := New(wtSvc)

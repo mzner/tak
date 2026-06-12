@@ -42,7 +42,9 @@ Doctor only reports — it never removes anything.`,
 			return err
 		}
 
-		fmt.Printf("Checking %d worktrees...\n\n", len(entries))
+		fmt.Printf("Checking %d worktrees...\n", len(entries))
+		fmt.Println("Note: run `git fetch --prune` first to detect squash-merged branches.")
+		fmt.Println()
 
 		d := doctor.New(wtSvc)
 		findings := d.Check(entries, cfg.Pins, wtSvc.DefaultBranch())
