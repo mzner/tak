@@ -51,6 +51,8 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			}
 		}
 
+		fmt.Fprintf(os.Stderr, "Removing branch...\n")
+
 		takDir := filepath.Join(repoRoot, ".tak")
 		statePath := state.StatePath(takDir)
 		st, _ := state.Load(statePath)
