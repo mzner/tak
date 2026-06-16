@@ -125,9 +125,12 @@ tmux:
     - name: shell
       command: ""
 
-# Optional: hooks run after tak add creates a worktree
+# Optional: lifecycle hooks around worktree creation and removal
 hooks:
-  post_create:
+  pre_create:                  # before worktree is created (non-zero aborts)
+    - type: command
+      command: docker compose stop
+  post_create:                 # after worktree is created
     - type: copy
       from: .env
       to: .env
@@ -136,6 +139,12 @@ hooks:
       to: node_modules
     - type: command
       command: npm ci
+  pre_remove:                  # before worktree is removed (non-zero aborts)
+    - type: command
+      command: chmod -R u+w .
+  post_remove:                 # after worktree is removed
+    - type: command
+      command: docker volume rm "vol-$TAK_WORKTREE_NAME" || true
 ```
 
 **Hook types:**
@@ -144,7 +153,9 @@ hooks:
 |------|-------------|--------|
 | `copy` | Copy file/directory from main worktree to new | `from`, `to` (defaults to `from`) |
 | `symlink` | Create symlink from new worktree pointing to main | `from`, `to` (defaults to `from`) |
-| `command` | Run a shell command in the new worktree | `command`, `env` (optional), `work_dir` (optional) |
+| `command` | Run a shell command in the worktree | `command`, `env` (optional), `work_dir` (optional) |
+
+All `command` hooks receive `TAK_WORKTREE_NAME`, `TAK_SOURCE_DIR`, `TAK_TARGET_DIR`, `TAK_BRANCH`, and `TAK_HOOK` as environment variables. Commands are interactive (stdin connected). See [docs/configuration.md](docs/configuration.md) for full details.
 
 ### Global: `~/.config/tak/config.yml`
 

@@ -33,9 +33,13 @@ tmux:
     - name: shell
       command: ""          # empty = plain shell
 
-# Lifecycle hooks — run automatically after tak add
+# Lifecycle hooks — run at various stages of worktree creation and removal
 hooks:
-  post_create:
+  pre_create:              # runs BEFORE worktree is created (non-zero exit aborts)
+    - type: command
+      command: docker compose stop
+
+  post_create:             # runs AFTER worktree is created
     - type: copy           # copy file/directory from main worktree to new
       from: .env
       to: .env             # defaults to same as 'from' if omitted
@@ -47,7 +51,40 @@ hooks:
       env:                 # optional environment variables
         NODE_ENV: development
       work_dir: "."        # optional subdirectory to run in
+
+  pre_remove:              # runs BEFORE worktree is removed (non-zero exit aborts)
+    - type: command
+      command: chmod -R u+w .
+
+  post_remove:             # runs AFTER worktree is removed
+    - type: command
+      command: docker volume rm "vol-$TAK_WORKTREE_NAME" 2>/dev/null || true
 ```
+
+### Hook lifecycle
+
+| Hook | Trigger | On failure |
+|------|---------|------------|
+| `pre_create` | Before `tak add` creates the worktree | **Aborts** — worktree is not created |
+| `post_create` | After `tak add` creates the worktree | Warning printed, operation continues |
+| `pre_remove` | Before `tak rm` removes the worktree | **Skips** — worktree is not removed |
+| `post_remove` | After `tak rm` removes the worktree | Warning printed, operation continues |
+
+### Hook environment variables
+
+All `command` hooks receive these environment variables automatically:
+
+| Variable | Description |
+|----------|-------------|
+| `TAK_WORKTREE_NAME` | Directory basename of the worktree (e.g. `myrepo--feature--auth`) |
+| `TAK_SOURCE_DIR` | Path to the main worktree / repo root |
+| `TAK_TARGET_DIR` | Path to the target worktree directory |
+| `TAK_BRANCH` | Branch name (e.g. `feature/auth`) |
+| `TAK_HOOK` | Hook name being executed (`pre_create`, `post_create`, `pre_remove`, `post_remove`) |
+
+These are available in addition to any `env:` values defined on the hook action. User-defined `env` values take precedence if they overlap.
+
+Commands are interactive — stdin is connected, so hooks can prompt for confirmation if needed.
 
 ## Global config: `~/.config/tak/config.yml`
 

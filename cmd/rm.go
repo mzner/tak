@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/mzner/tak/internal/config"
+	"github.com/mzner/tak/internal/hooks"
 	"github.com/mzner/tak/internal/paths"
 	"github.com/mzner/tak/internal/runner"
 	"github.com/mzner/tak/internal/state"
@@ -103,9 +104,40 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 				}
 			}
 
+			// Run pre_remove hooks (abort this worktree on failure)
+			if len(cfg.Hooks.PreRemove) > 0 {
+				hookCtx := hooks.Context{
+					WorktreeName: filepath.Base(wtPath),
+					SourceDir:    repoRoot,
+					TargetDir:    wtPath,
+					Branch:       branch,
+					Hook:         "pre_remove",
+				}
+				actions := toHookActions(cfg.Hooks.PreRemove)
+				if err := hooks.Run(actions, repoRoot, wtPath, hookCtx); err != nil {
+					fmt.Fprintf(os.Stderr, "skipping %s: pre_remove hook failed: %s\n", branch, err)
+					continue
+				}
+			}
+
 			if err := wtSvc.Remove(wtPath, rmForce); err != nil {
 				fmt.Fprintf(os.Stderr, "error removing %s: %s\n", branch, err)
 				continue
+			}
+
+			// Run post_remove hooks
+			if len(cfg.Hooks.PostRemove) > 0 {
+				hookCtx := hooks.Context{
+					WorktreeName: filepath.Base(wtPath),
+					SourceDir:    repoRoot,
+					TargetDir:    wtPath,
+					Branch:       branch,
+					Hook:         "post_remove",
+				}
+				actions := toHookActions(cfg.Hooks.PostRemove)
+				if err := hooks.Run(actions, repoRoot, repoRoot, hookCtx); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: post_remove hook failed: %s\n", err)
+				}
 			}
 
 			// Delete the requested branch (skip if unpushed or has unmerged commits, unless -F)

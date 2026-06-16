@@ -14,7 +14,10 @@ type Config struct {
 
 // HooksConfig holds lifecycle hook definitions.
 type HooksConfig struct {
+	PreCreate  []HookAction `yaml:"pre_create,omitempty"`
 	PostCreate []HookAction `yaml:"post_create,omitempty"`
+	PreRemove  []HookAction `yaml:"pre_remove,omitempty"`
+	PostRemove []HookAction `yaml:"post_remove,omitempty"`
 }
 
 // HookAction represents a single hook step.

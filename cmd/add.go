@@ -77,6 +77,22 @@ If the branch exists (locally or remotely), it is checked out.`,
 			}
 		}
 
+		// Run pre_create hooks (abort on failure)
+		if len(cfg.Hooks.PreCreate) > 0 {
+			fmt.Fprintf(os.Stderr, "Running pre_create hooks...\n")
+			hookCtx := hooks.Context{
+				WorktreeName: filepath.Base(wtPath),
+				SourceDir:    repoRoot,
+				TargetDir:    wtPath,
+				Branch:       branch,
+				Hook:         "pre_create",
+			}
+			actions := toHookActions(cfg.Hooks.PreCreate)
+			if err := hooks.Run(actions, repoRoot, repoRoot, hookCtx); err != nil {
+				return fmt.Errorf("pre_create hook failed: %w", err)
+			}
+		}
+
 		// Create worktree
 		fmt.Fprintf(os.Stderr, "Creating worktree %s...\n", branch)
 		if err := wtSvc.Add(wtPath, branch, newBranch, startPoint); err != nil {
@@ -105,19 +121,16 @@ If the branch exists (locally or remotely), it is checked out.`,
 		// Run post_create hooks
 		if len(cfg.Hooks.PostCreate) > 0 {
 			fmt.Fprintf(os.Stderr, "Running post_create hooks...\n")
-			var actions []hooks.Action
-			for _, h := range cfg.Hooks.PostCreate {
-				actions = append(actions, hooks.Action{
-					Type:    h.Type,
-					From:    h.From,
-					To:      h.To,
-					Command: h.Command,
-					Env:     h.Env,
-					WorkDir: h.WorkDir,
-				})
+			hookCtx := hooks.Context{
+				WorktreeName: filepath.Base(wtPath),
+				SourceDir:    repoRoot,
+				TargetDir:    wtPath,
+				Branch:       branch,
+				Hook:         "post_create",
 			}
-			if err := hooks.RunPostCreate(actions, repoRoot, wtPath); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: hook failed: %s\n", err)
+			actions := toHookActions(cfg.Hooks.PostCreate)
+			if err := hooks.Run(actions, repoRoot, wtPath, hookCtx); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: post_create hook failed: %s\n", err)
 			}
 		}
 
@@ -149,6 +162,21 @@ If the branch exists (locally or remotely), it is checked out.`,
 
 func hasPrefix(branch string, prefix string) bool {
 	return len(branch) > len(prefix) && branch[:len(prefix)] == prefix
+}
+
+func toHookActions(cfgActions []config.HookAction) []hooks.Action {
+	actions := make([]hooks.Action, len(cfgActions))
+	for i, h := range cfgActions {
+		actions[i] = hooks.Action{
+			Type:    h.Type,
+			From:    h.From,
+			To:      h.To,
+			Command: h.Command,
+			Env:     h.Env,
+			WorkDir: h.WorkDir,
+		}
+	}
+	return actions
 }
 
 func init() {

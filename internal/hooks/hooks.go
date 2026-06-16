@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Action represents a single hook step.
@@ -18,11 +19,34 @@ type Action struct {
 	WorkDir string
 }
 
-// RunPostCreate executes post_create hooks.
+// Context provides metadata passed to hook commands as environment variables.
+type Context struct {
+	WorktreeName string
+	SourceDir    string
+	TargetDir    string
+	Branch       string
+	Hook         string
+}
+
+// Environ returns the context as TAK_* environment variables.
+func (c Context) Environ() []string {
+	return []string{
+		"TAK_WORKTREE_NAME=" + c.WorktreeName,
+		"TAK_SOURCE_DIR=" + c.SourceDir,
+		"TAK_TARGET_DIR=" + c.TargetDir,
+		"TAK_BRANCH=" + c.Branch,
+		"TAK_HOOK=" + c.Hook,
+	}
+}
+
+// Run executes a list of hook actions with the given context.
 // mainRoot is the main worktree root (source for copy/symlink).
-// wtPath is the newly created worktree path (destination).
-func RunPostCreate(actions []Action, mainRoot string, wtPath string) error {
-	for _, a := range actions {
+// wtPath is the worktree path (destination for copy/symlink, working dir for commands).
+func Run(actions []Action, mainRoot string, wtPath string, ctx Context) error {
+	total := len(actions)
+	for i, a := range actions {
+		label := actionLabel(a)
+		fmt.Fprintf(os.Stderr, "  [%d/%d] %s\n", i+1, total, label)
 		switch a.Type {
 		case "copy":
 			if err := runCopy(a, mainRoot, wtPath); err != nil {
@@ -33,7 +57,7 @@ func RunPostCreate(actions []Action, mainRoot string, wtPath string) error {
 				return fmt.Errorf("hook symlink %s: %w", a.From, err)
 			}
 		case "command":
-			if err := runCommand(a, wtPath); err != nil {
+			if err := runCommand(a, wtPath, ctx); err != nil {
 				return fmt.Errorf("hook command '%s': %w", a.Command, err)
 			}
 		default:
@@ -41,6 +65,36 @@ func RunPostCreate(actions []Action, mainRoot string, wtPath string) error {
 		}
 	}
 	return nil
+}
+
+func actionLabel(a Action) string {
+	switch a.Type {
+	case "copy":
+		if a.To != "" && a.To != a.From {
+			return fmt.Sprintf("copy %s → %s", a.From, a.To)
+		}
+		return fmt.Sprintf("copy %s", a.From)
+	case "symlink":
+		return fmt.Sprintf("symlink %s", a.From)
+	case "command":
+		cmd := a.Command
+		if i := strings.IndexByte(cmd, '\n'); i >= 0 {
+			cmd = cmd[:i]
+		}
+		if len(cmd) > 60 {
+			cmd = cmd[:57] + "..."
+		}
+		return fmt.Sprintf("run: %s", cmd)
+	default:
+		return a.Type
+	}
+}
+
+// RunPostCreate executes post_create hooks (legacy wrapper).
+// mainRoot is the main worktree root (source for copy/symlink).
+// wtPath is the newly created worktree path (destination).
+func RunPostCreate(actions []Action, mainRoot string, wtPath string) error {
+	return Run(actions, mainRoot, wtPath, Context{})
 }
 
 func runCopy(a Action, mainRoot string, wtPath string) error {
@@ -80,7 +134,7 @@ func runSymlink(a Action, mainRoot string, wtPath string) error {
 	return os.Symlink(src, dst)
 }
 
-func runCommand(a Action, wtPath string) error {
+func runCommand(a Action, wtPath string, ctx Context) error {
 	dir := wtPath
 	if a.WorkDir != "" {
 		dir = filepath.Join(wtPath, a.WorkDir)
@@ -92,11 +146,10 @@ func runCommand(a Action, wtPath string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	if len(a.Env) > 0 {
-		cmd.Env = os.Environ()
-		for k, v := range a.Env {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, ctx.Environ()...)
+	for k, v := range a.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
 	return cmd.Run()

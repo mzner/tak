@@ -308,3 +308,103 @@ func TestRunPostCreate_EmptyActionsIsNoop(t *testing.T) {
 		t.Errorf("empty actions should be a no-op, got: %v", err)
 	}
 }
+
+func TestRun_CommandReceivesContext(t *testing.T) {
+	_, wtPath := setup(t, nil)
+
+	ctx := Context{
+		WorktreeName: "myrepo--feature--x",
+		SourceDir:    "/src",
+		TargetDir:    "/dst",
+		Branch:       "feature/x",
+		Hook:         "pre_create",
+	}
+
+	err := Run(
+		[]Action{{Type: "command", Command: `printenv | grep ^TAK_ | sort > ctx.txt`}},
+		"", wtPath, ctx,
+	)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(wtPath, "ctx.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"TAK_WORKTREE_NAME=myrepo--feature--x",
+		"TAK_SOURCE_DIR=/src",
+		"TAK_TARGET_DIR=/dst",
+		"TAK_BRANCH=feature/x",
+		"TAK_HOOK=pre_create",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in output:\n%s", want, got)
+		}
+	}
+}
+
+func TestRun_CommandEnvOverridesContext(t *testing.T) {
+	_, wtPath := setup(t, nil)
+
+	ctx := Context{
+		WorktreeName: "wt",
+		Hook:         "post_create",
+	}
+
+	err := Run(
+		[]Action{{
+			Type:    "command",
+			Command: `echo "$CUSTOM_VAR" > out.txt`,
+			Env:     map[string]string{"CUSTOM_VAR": "hello"},
+		}},
+		"", wtPath, ctx,
+	)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(wtPath, "out.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "hello") {
+		t.Errorf("custom env not set, got %q", got)
+	}
+}
+
+func TestRun_NonzeroExitBlocksOperation(t *testing.T) {
+	_, wtPath := setup(t, nil)
+
+	ctx := Context{Hook: "pre_remove"}
+
+	err := Run(
+		[]Action{{Type: "command", Command: "exit 1"}},
+		"", wtPath, ctx,
+	)
+	if err == nil {
+		t.Fatal("expected error from failing hook")
+	}
+}
+
+func TestRun_EmptyContextStillWorks(t *testing.T) {
+	_, wtPath := setup(t, nil)
+
+	err := Run(
+		[]Action{{Type: "command", Command: "echo ok > out.txt"}},
+		"", wtPath, Context{},
+	)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(wtPath, "out.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "ok") {
+		t.Errorf("got %q, want ok", got)
+	}
+}
