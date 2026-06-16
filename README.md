@@ -20,11 +20,32 @@ tak handles all of that:
 
 ## Install
 
+### Homebrew (macOS/Linux)
+
 ```bash
 brew install mzner/tap/tak
 ```
 
-Or build from source:
+### Download binary
+
+Download the archive for your platform from the
+[releases page](https://github.com/mzner/tak/releases), then:
+
+```bash
+tar xzf tak_0.1.0_darwin_arm64.tar.gz
+sudo mv tak /usr/local/bin/
+```
+
+Available archives follow the pattern `tak_<version>_<os>_<arch>.tar.gz`:
+
+| Platform | File |
+|----------|------|
+| macOS ARM (Apple Silicon) | `tak_0.1.0_darwin_arm64.tar.gz` |
+| macOS Intel | `tak_0.1.0_darwin_amd64.tar.gz` |
+| Linux x86_64 | `tak_0.1.0_linux_amd64.tar.gz` |
+| Linux ARM | `tak_0.1.0_linux_arm64.tar.gz` |
+
+### From source (requires Go)
 
 ```bash
 go install github.com/mzner/tak@latest

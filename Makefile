@@ -1,4 +1,4 @@
-.PHONY: build install dev test test-integration lint test-all ci setup clean help
+.PHONY: build install dev test test-integration lint test-all ci setup clean release help
 
 # Resolve golangci-lint via PATH, falling back to GOPATH/bin. Git hooks run
 # with a minimal environment that often lacks GOPATH/bin on PATH, so the bare
@@ -41,6 +41,22 @@ setup:
 	git config core.hooksPath .githooks
 	@echo "Git hooks enabled (.githooks). Pushes now run 'make ci' first."
 
+# Create a release: runs CI, tags, pushes to all remotes. Usage:
+#   make release VERSION=0.2.0
+#   make release              (auto-bumps patch from last tag)
+release:
+	@if [ -n "$$(git status --porcelain)" ]; then echo "error: working tree is dirty"; exit 1; fi
+	@$(MAKE) ci
+	$(eval LAST_TAG := $(shell git tag -l 'v*' | sort -V | tail -1))
+	$(eval NEW_TAG := $(if $(VERSION),v$(VERSION),$(shell \
+		if [ -z "$(LAST_TAG)" ]; then echo "v0.1.0"; \
+		else echo "$(LAST_TAG)" | awk -F. '{printf "%s.%s.%d", $$1, $$2, $$3+1}'; \
+		fi)))
+	@echo "Releasing $(NEW_TAG) (previous: $(or $(LAST_TAG),none))"
+	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	git tag -a $(NEW_TAG) -m "Release $(NEW_TAG)"
+	git push origin main --tags
+
 clean:
 	rm -rf bin/
 	go clean
@@ -56,5 +72,6 @@ help:
 	@echo "  test-all           - Run lint and tests"
 	@echo "  ci                 - Run the full CI pipeline locally"
 	@echo "  setup              - Enable git pre-push hook (run once after clone)"
+	@echo "  release            - Run CI, tag, and push (VERSION=x.y.z or auto-bump)"
 	@echo "  clean              - Remove build artifacts"
 	@echo "  help               - Show this help message"

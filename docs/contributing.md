@@ -84,6 +84,15 @@ tak/
 - Error messages: lowercase, no period, actionable
 - Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
 
+## Releasing
+
+```bash
+make release               # auto-bumps patch (v0.1.0 → v0.1.1)
+make release VERSION=1.0.0 # explicit version
+```
+
+This runs CI, creates a git tag, and pushes to GitHub. CI then builds release binaries and publishes them automatically.
+
 ## Pull Requests
 
 - One focused change per PR
