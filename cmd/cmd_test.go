@@ -196,6 +196,29 @@ func TestRm_KeepsBranchWithUnpushedCommits(t *testing.T) {
 	}
 }
 
+func TestRm_DeletesBranchWhenRunFromInsideWorktree(t *testing.T) {
+	repoDir, wtBase := newRepo(t)
+
+	if _, _, err := runCmd(t, "add", "feature/inside"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run rm with the current working directory set to the worktree being
+	// removed. git worktree remove deletes that directory, so any git command
+	// that inherits the process CWD afterwards runs in a dir that no longer
+	// exists. The branch-keep heuristic must not be fooled by those failures.
+	t.Chdir(wtPath(repoDir, wtBase, "feature/inside"))
+
+	if _, _, err := runCmd(t, "rm", "feature/inside"); err != nil {
+		t.Fatalf("rm failed: %v", err)
+	}
+
+	// Branch has no commits ahead of main, so it should be deleted cleanly.
+	if strings.Contains(git(t, repoDir, "branch"), "feature/inside") {
+		t.Error("branch should have been deleted even when rm runs from inside the worktree")
+	}
+}
+
 func TestRm_ForceDeletesBranchWithCommits(t *testing.T) {
 	repoDir, wtBase := newRepo(t)
 

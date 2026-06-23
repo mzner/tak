@@ -16,11 +16,34 @@ type Entry struct {
 // Service provides git worktree operations.
 type Service struct {
 	runner runner.CommandRunner
+	// dir, when non-empty, is the working directory git commands run in.
+	// It guards against the process CWD vanishing mid-operation (e.g. when
+	// `rm` deletes the very worktree it was invoked from). Empty means git
+	// inherits the process's current working directory.
+	dir string
 }
 
 // NewService creates a Service with the given command runner.
 func NewService(r runner.CommandRunner) *Service {
 	return &Service{runner: r}
+}
+
+// WithDir returns a copy of the Service that runs git commands in dir.
+// Use it to pin operations to a stable directory (the repo root) so they
+// survive the removal of the worktree the command was launched from.
+func (s *Service) WithDir(dir string) *Service {
+	clone := *s
+	clone.dir = dir
+	return &clone
+}
+
+// run executes a git command, honoring the Service's pinned working
+// directory when one is set.
+func (s *Service) run(name string, args ...string) ([]byte, error) {
+	if s.dir != "" {
+		return s.runner.RunInDir(s.dir, name, args...)
+	}
+	return s.runner.Run(name, args...)
 }
 
 // Add creates a new worktree. If newBranch is true, it creates the branch
@@ -36,7 +59,7 @@ func (s *Service) Add(path string, branch string, newBranch bool, startPoint str
 	} else {
 		args = append(args, branch)
 	}
-	_, err := s.runner.Run("git", args...)
+	_, err := s.run("git", args...)
 	return err
 }
 
@@ -47,13 +70,13 @@ func (s *Service) Remove(path string, force bool) error {
 		args = append(args, "--force")
 	}
 	args = append(args, path)
-	_, err := s.runner.Run("git", args...)
+	_, err := s.run("git", args...)
 	return err
 }
 
 // List returns all worktrees by parsing `git worktree list --porcelain`.
 func (s *Service) List() ([]Entry, error) {
-	output, err := s.runner.Run("git", "worktree", "list", "--porcelain")
+	output, err := s.run("git", "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +85,7 @@ func (s *Service) List() ([]Entry, error) {
 
 // IsDirty checks if a worktree has uncommitted changes.
 func (s *Service) IsDirty(path string) (bool, error) {
-	output, err := s.runner.Run("git", "-C", path, "status", "--porcelain")
+	output, err := s.run("git", "-C", path, "status", "--porcelain")
 	if err != nil {
 		return false, err
 	}
@@ -89,7 +112,7 @@ func (s *Service) IsMerged(branch string, target string) (bool, error) {
 
 // isAncestorOf returns true if commit is a strict ancestor of base.
 func (s *Service) isAncestorOf(commit, base string) (bool, error) {
-	_, err := s.runner.Run("git", "merge-base", "--is-ancestor", commit, base)
+	_, err := s.run("git", "merge-base", "--is-ancestor", commit, base)
 	if err != nil {
 		return false, err
 	}
@@ -100,7 +123,7 @@ func (s *Service) isAncestorOf(commit, base string) (bool, error) {
 // tracking ref that no longer exists (i.e. was deleted on the remote).
 // A purely local branch with no upstream configured returns false, nil.
 func (s *Service) trackingRefGone(branch string) (bool, error) {
-	output, err := s.runner.Run("git", "for-each-ref",
+	output, err := s.run("git", "for-each-ref",
 		"--format=%(upstream:short) %(upstream:track)",
 		"refs/heads/"+branch)
 	if err != nil {
@@ -113,7 +136,7 @@ func (s *Service) trackingRefGone(branch string) (bool, error) {
 // This always resolves to the primary repo root, even when called
 // from inside a linked worktree.
 func (s *Service) RepoRoot() (string, error) {
-	output, err := s.runner.Run("git", "rev-parse", "--path-format=absolute", "--git-common-dir")
+	output, err := s.run("git", "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +148,7 @@ func (s *Service) RepoRoot() (string, error) {
 
 // CurrentBranch returns the current branch name.
 func (s *Service) CurrentBranch() (string, error) {
-	output, err := s.runner.Run("git", "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := s.run("git", "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +157,7 @@ func (s *Service) CurrentBranch() (string, error) {
 
 // RenameBranch renames a local branch.
 func (s *Service) RenameBranch(oldName string, newName string) error {
-	_, err := s.runner.Run("git", "branch", "-m", oldName, newName)
+	_, err := s.run("git", "branch", "-m", oldName, newName)
 	return err
 }
 
@@ -144,7 +167,7 @@ func (s *Service) DeleteBranch(branch string, force bool) error {
 	if force {
 		flag = "-D"
 	}
-	_, err := s.runner.Run("git", "branch", flag, branch)
+	_, err := s.run("git", "branch", flag, branch)
 	return err
 }
 
@@ -156,7 +179,7 @@ func (s *Service) HasCommitsAhead(branch string, target string) (bool, error) {
 
 // CommitsAhead returns the number of commits in branch that are not in target.
 func (s *Service) CommitsAhead(branch string, target string) (int, error) {
-	output, err := s.runner.Run("git", "rev-list", "--count", target+".."+branch)
+	output, err := s.run("git", "rev-list", "--count", target+".."+branch)
 	if err != nil {
 		return 0, err
 	}
@@ -168,7 +191,7 @@ func (s *Service) CommitsAhead(branch string, target string) (int, error) {
 
 // CommitsBehind returns the number of commits in target that are not in branch.
 func (s *Service) CommitsBehind(branch string, target string) (int, error) {
-	output, err := s.runner.Run("git", "rev-list", "--count", branch+".."+target)
+	output, err := s.run("git", "rev-list", "--count", branch+".."+target)
 	if err != nil {
 		return 0, err
 	}
@@ -180,7 +203,7 @@ func (s *Service) CommitsBehind(branch string, target string) (int, error) {
 
 // MergeBase returns the common ancestor commit of two branches.
 func (s *Service) MergeBase(branch string, target string) (string, error) {
-	output, err := s.runner.Run("git", "merge-base", branch, target)
+	output, err := s.run("git", "merge-base", branch, target)
 	if err != nil {
 		return "", err
 	}
@@ -189,13 +212,13 @@ func (s *Service) MergeBase(branch string, target string) (string, error) {
 
 // Prune removes stale worktree entries from git's registry.
 func (s *Service) Prune() {
-	_, _ = s.runner.Run("git", "worktree", "prune")
+	_, _ = s.run("git", "worktree", "prune")
 }
 
 // HasUnpushedCommits returns true if the branch has commits not pushed to its remote.
 func (s *Service) HasUnpushedCommits(branch string) bool {
 	remote := "origin/" + branch
-	output, err := s.runner.Run("git", "rev-list", "--count", remote+".."+branch)
+	output, err := s.run("git", "rev-list", "--count", remote+".."+branch)
 	if err != nil {
 		// No remote tracking branch — check if branch has any commits at all
 		return true
@@ -205,14 +228,14 @@ func (s *Service) HasUnpushedCommits(branch string) bool {
 
 // BranchExists checks if a branch exists (local or remote tracking).
 func (s *Service) BranchExists(branch string) bool {
-	_, err := s.runner.Run("git", "rev-parse", "--verify", branch)
+	_, err := s.run("git", "rev-parse", "--verify", branch)
 	return err == nil
 }
 
 // DefaultBranch returns the repository's default branch (main, master, etc.)
 // by checking what origin/HEAD points to, falling back to common names.
 func (s *Service) DefaultBranch() string {
-	output, err := s.runner.Run("git", "symbolic-ref", "refs/remotes/origin/HEAD")
+	output, err := s.run("git", "symbolic-ref", "refs/remotes/origin/HEAD")
 	if err == nil {
 		ref := strings.TrimSpace(string(output))
 		parts := strings.Split(ref, "/")

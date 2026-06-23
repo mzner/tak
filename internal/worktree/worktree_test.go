@@ -44,6 +44,30 @@ func TestAdd_ExistingBranch(t *testing.T) {
 	assert.Equal(t, []string{"worktree", "add", "/tmp/web--feature--auth", "feature/auth"}, call.Args)
 }
 
+func TestWithDir_RunsCommandsInDir(t *testing.T) {
+	fake := runner.NewFakeRunner(nil)
+	svc := NewService(fake).WithDir("/repo/root")
+
+	err := svc.DeleteBranch("feature/auth", true)
+	require.NoError(t, err)
+
+	call := fake.Calls[0]
+	assert.Equal(t, "/repo/root", call.Dir)
+	assert.Equal(t, []string{"branch", "-D", "feature/auth"}, call.Args)
+}
+
+func TestWithDir_DoesNotMutateOriginal(t *testing.T) {
+	fake := runner.NewFakeRunner(nil)
+	orig := NewService(fake)
+	_ = orig.WithDir("/repo/root")
+
+	err := orig.DeleteBranch("feature/auth", false)
+	require.NoError(t, err)
+
+	// The original service must still run in the inherited CWD (empty Dir).
+	assert.Equal(t, "", fake.Calls[0].Dir)
+}
+
 func TestRemove(t *testing.T) {
 	fake := runner.NewFakeRunner(nil)
 	svc := NewService(fake)

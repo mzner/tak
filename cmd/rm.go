@@ -37,6 +37,12 @@ Refuses to remove dirty worktrees (use -F/--force to override).`,
 			return errNotInRepo
 		}
 
+		// Pin git commands to the repo root. `rm` may delete the worktree it
+		// was invoked from, which would otherwise leave later git calls running
+		// in a CWD that no longer exists — silently failing the branch-keep
+		// checks and stranding the branch.
+		wtSvc = wtSvc.WithDir(repoRoot)
+
 		cfg, err := config.Load(repoRoot, "")
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
