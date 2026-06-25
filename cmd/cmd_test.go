@@ -344,6 +344,28 @@ func TestLs_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestLs_OmitsMainWorktree(t *testing.T) {
+	repoDir, _ := newRepo(t)
+
+	// Create a tak-managed worktree and a plain branch checked out in the
+	// repo root. Only the worktree should appear in `tak ls`.
+	if _, _, err := runCmd(t, "add", "feature/listed"); err != nil {
+		t.Fatal(err)
+	}
+	git(t, repoDir, "checkout", "-b", "loose-branch")
+
+	stdout, _, err := runCmd(t, "ls")
+	if err != nil {
+		t.Fatalf("ls failed: %v", err)
+	}
+	if !strings.Contains(stdout, "feature/listed") {
+		t.Errorf("expected linked worktree in output, got: %q", stdout)
+	}
+	if strings.Contains(stdout, "loose-branch") {
+		t.Errorf("main worktree's branch should not appear, got: %q", stdout)
+	}
+}
+
 func TestInit_AlreadyExistsIsError(t *testing.T) {
 	repoDir := t.TempDir()
 	t.Setenv("HOME", t.TempDir())

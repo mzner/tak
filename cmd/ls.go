@@ -52,6 +52,11 @@ var lsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Drop the main worktree (the repo root itself). It's the bare repo,
+		// not a tak-managed branch, and including it would surface whatever
+		// branch HEAD happens to point to there.
+		entries = filterMainWorktree(entries, repoRoot)
+
 		if lsJSON {
 			type jsonEntry struct {
 				Branch string `json:"branch"`
@@ -103,6 +108,17 @@ var lsCmd = &cobra.Command{
 		}
 		_ = w.Flush()
 	},
+}
+
+func filterMainWorktree(entries []worktree.Entry, repoRoot string) []worktree.Entry {
+	out := entries[:0]
+	for _, e := range entries {
+		if e.Path == repoRoot {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 func shortenHome(path string) string {
