@@ -221,6 +221,10 @@ Tab completion shows repo names and their branches.
 - Per-repo `.tak.yml` overrides global `~/.config/tak/config.yml` for any key present in both
 - All git/tmux interaction is via shell commands — no heavy dependencies
 
+## Editor Integration
+
+[tak.nvim](https://github.com/mzner/tak.nvim) adds Neovim pickers for switching, creating, and removing worktrees without leaving the editor.
+
 ## Contributing
 
 See [docs/contributing.md](docs/contributing.md).
