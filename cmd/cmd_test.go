@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mzner/tak/internal/state"
 )
 
 // runCmd executes the root command with the given args and captures what the
@@ -386,6 +388,69 @@ func TestInit_AlreadyExistsIsError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "already exists") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGc_UntracksStateEntryWithNoLiveWorktree(t *testing.T) {
+	repoDir, _ := newRepo(t)
+
+	// Simulate a worktree that was removed outside of tak: git no longer
+	// knows about the branch/worktree at all, but state.json still does.
+	takDir := filepath.Join(repoDir, ".tak")
+	statePath := state.StatePath(takDir)
+	st := &state.State{}
+	state.Track(st, "feature/ghost", filepath.Join(repoDir, "..", "ghost-worktree"), "")
+	if err := state.Save(statePath, st); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _, err := runCmd(t, "gc")
+	if err != nil {
+		t.Fatalf("gc failed: %v", err)
+	}
+	if !strings.Contains(stdout, "Untracked feature/ghost") {
+		t.Errorf("expected gc to untrack the stale state entry, stdout: %q", stdout)
+	}
+
+	after, err := state.Load(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, found := state.FindByBranch(after, "feature/ghost"); found {
+		t.Error("feature/ghost should have been removed from state.json")
+	}
+}
+
+func TestGc_KeepsPinnedStateEntryWithNoLiveWorktree(t *testing.T) {
+	repoDir, _ := newRepo(t)
+
+	cfg := "pins:\n  - feature/ghost-pinned\n"
+	if err := os.WriteFile(filepath.Join(repoDir, ".tak.yml"), []byte(cfg), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	takDir := filepath.Join(repoDir, ".tak")
+	statePath := state.StatePath(takDir)
+	st := &state.State{}
+	state.Track(st, "feature/ghost-pinned", filepath.Join(repoDir, "..", "ghost-pinned"), "")
+	if err := state.Save(statePath, st); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _, err := runCmd(t, "gc")
+	if err != nil {
+		t.Fatalf("gc failed: %v", err)
+	}
+	if strings.Contains(stdout, "Untracked feature/ghost-pinned") {
+		t.Errorf("pinned stale entry should not be untracked, stdout: %q", stdout)
+	}
+
+	after, err := state.Load(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, found := state.FindByBranch(after, "feature/ghost-pinned"); !found {
+		t.Error("pinned feature/ghost-pinned should still be in state.json")
 	}
 }
 

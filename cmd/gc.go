@@ -73,15 +73,48 @@ Always skips pinned worktrees.`,
 			}
 		}
 
-		if len(toRemove) == 0 {
+		// State can reference branches git no longer knows about at all (e.g.
+		// the worktree was removed outside of tak, or a prior gc removed the
+		// git worktree/branch but was interrupted before saving state). Find
+		// those so they get untracked too, instead of lingering forever since
+		// doctor never sees them (it only walks live `git worktree list` entries).
+		takDir := filepath.Join(repoRoot, ".tak")
+		statePath := state.StatePath(takDir)
+		st, _ := state.Load(statePath)
+
+		liveBranches := make(map[string]bool, len(entries))
+		for _, e := range entries {
+			liveBranches[e.Branch] = true
+		}
+		pinSet := make(map[string]bool, len(cfg.Pins))
+		for _, p := range cfg.Pins {
+			pinSet[p] = true
+		}
+		var staleState []string
+		for _, w := range st.Worktrees {
+			if liveBranches[w.Branch] || pinSet[w.Branch] {
+				continue
+			}
+			staleState = append(staleState, w.Branch)
+		}
+
+		if len(toRemove) == 0 && len(staleState) == 0 {
 			fmt.Println("Nothing to clean up.")
 			return nil
 		}
 
 		if gcDryRun {
-			fmt.Println("Would remove:")
-			for _, f := range toRemove {
-				fmt.Printf("  %-24s (%s)\n", f.Branch, f.Message)
+			if len(toRemove) > 0 {
+				fmt.Println("Would remove:")
+				for _, f := range toRemove {
+					fmt.Printf("  %-24s (%s)\n", f.Branch, f.Message)
+				}
+			}
+			if len(staleState) > 0 {
+				fmt.Println("Would untrack (no matching worktree):")
+				for _, branch := range staleState {
+					fmt.Printf("  %s\n", branch)
+				}
 			}
 			if len(skipped) > 0 {
 				fmt.Println("\nSkipped (pinned):")
@@ -94,10 +127,6 @@ Always skips pinned worktrees.`,
 		}
 
 		// Perform removals
-		takDir := filepath.Join(repoRoot, ".tak")
-		statePath := state.StatePath(takDir)
-		st, _ := state.Load(statePath)
-
 		removed := 0
 		for _, f := range toRemove {
 			windowName := paths.TmuxSlug(f.Branch)
@@ -114,6 +143,11 @@ Always skips pinned worktrees.`,
 			state.Untrack(st, f.Branch)
 			removed++
 			fmt.Printf("Removed %s (%s)\n", f.Branch, f.Message)
+		}
+
+		for _, branch := range staleState {
+			state.Untrack(st, branch)
+			fmt.Printf("Untracked %s (no matching worktree)\n", branch)
 		}
 
 		// Sync state: add worktrees git knows about but state doesn't
